@@ -70,14 +70,14 @@ export function FilmmakerDashboard() {
       setStreamingPayments(paymentsData || []);
 
       // Fetch payment requests to calculate available balance
-      const { data: paymentsData, error: paymentsError } = await supabase
+      const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
         .select('*')
         .eq('filmmaker_id', profile.id);
 
-      if (paymentsError) throw paymentsError;
+      if (requestsError) throw requestsError;
 
-      setPaymentRequests(paymentsData || []);
+      setPaymentRequests(requestsData || []);
 
       setStats({
         totalTitles: titlesData?.length || 0,
