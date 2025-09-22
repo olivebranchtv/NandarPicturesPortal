@@ -71,9 +71,26 @@ export function useAuth() {
   const signUp = async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase not configured') };
     
+    // Check if this is an admin email
+    const adminEmails = [
+      'nancycriss@yahoo.com',
+      'sherri@olivebranch.tv',
+      'nancy@olivebranch.tv',
+      'info@olivebranchfilmstudios.com',
+      'mail@nandarpictures.com'
+    ];
+    
+    const isAdmin = adminEmails.includes(email.toLowerCase()) || 
+                   email.toLowerCase().endsWith('@nandarpictures.com');
+    
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          role: isAdmin ? 'admin' : 'filmmaker'
+        }
+      }
     });
     return { error };
   };

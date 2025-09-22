@@ -64,10 +64,10 @@ export function SignUp({ onToggleMode }: SignUpProps) {
             </span>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">
-            Create filmmaker account
+            Create your account
           </h2>
           <p className="text-sm text-gray-600">
-            Join our distribution platform
+            Join the Nandar Pictures platform
           </p>
         </CardHeader>
         
