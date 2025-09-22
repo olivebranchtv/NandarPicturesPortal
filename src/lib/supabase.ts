@@ -65,6 +65,11 @@ export interface PaymentRequest {
   date_paid?: string;
   requested_at: string;
   updated_at: string;
+  filmmaker?: {
+    first_name?: string;
+    last_name?: string;
+    email: string;
+  };
 }
 
 export interface StreamingPayment {

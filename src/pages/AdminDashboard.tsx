@@ -43,6 +43,7 @@ export function AdminDashboard() {
   });
   const [recentTitles, setRecentTitles] = useState<Content[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PaymentRequest[]>([]);
+  const [allPaymentRequests, setAllPaymentRequests] = useState<PaymentRequest[]>([]);
   const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
   const [filmmakerBalances, setFilmmakerBalances] = useState<FilmmakerBalance[]>([]);
   const [allFilmmakers, setAllFilmmakers] = useState<User[]>([]);
@@ -51,8 +52,14 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showTitleForm, setShowTitleForm] = useState(false);
+  const [showManageRequestModal, setShowManageRequestModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState<StreamingPayment | null>(null);
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
+  const [currentRequest, setCurrentRequest] = useState<PaymentRequest | null>(null);
+  const [modalAmountApproved, setModalAmountApproved] = useState('');
+  const [modalPaymentMethod, setModalPaymentMethod] = useState('');
+  const [modalPaymentDate, setModalPaymentDate] = useState('');
+  const [modalAdminNotes, setModalAdminNotes] = useState('');
   const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
     title_id: '',
     platform: '',
@@ -80,10 +87,14 @@ export function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch stats
-      const [titlesResult, usersResult, paymentsResult, streamingResult, balancesResult, filmmakersResult] = await Promise.all([
+      const [titlesResult, usersResult, paymentsResult, allRequestsResult, streamingResult, balancesResult, filmmakersResult] = await Promise.all([
         supabase.from('content').select('revenue_total'),
         supabase.from('users').select('id').eq('role', 'filmmaker'),
         supabase.from('payment_requests').select('*').eq('status', 'pending'),
+        supabase.from('payment_requests').select(`
+          *,
+          users!payment_requests_filmmaker_id_fkey(first_name, last_name, email)
+        `).order('requested_at', { ascending: false }),
         supabase.from('streaming_payments').select(`
           *,
           content!inner(title_name, filmmaker_id)
@@ -98,6 +109,7 @@ export function AdminDashboard() {
       if (titlesResult.error) throw titlesResult.error;
       if (usersResult.error) throw usersResult.error;
       if (paymentsResult.error) throw paymentsResult.error;
+      if (allRequestsResult.error) throw allRequestsResult.error;
       if (streamingResult.error) throw streamingResult.error;
       if (balancesResult.error) throw balancesResult.error;
       if (filmmakersResult.error) throw filmmakersResult.error;
@@ -112,6 +124,10 @@ export function AdminDashboard() {
       });
 
       setPendingRequests(paymentsResult.data || []);
+      setAllPaymentRequests(allRequestsResult.data?.map(req => ({
+        ...req,
+        filmmaker: req.users
+      })) || []);
       setStreamingPayments(streamingResult.data || []);
       setFilmmakerBalances(balancesResult.data || []);
       setAllFilmmakers(filmmakersResult.data || []);
@@ -142,6 +158,58 @@ export function AdminDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenManageRequestModal = (request: PaymentRequest) => {
+    setCurrentRequest(request);
+    setModalAmountApproved(request.amount_approved?.toString() || request.amount_requested.toString());
+    setModalPaymentMethod(request.payment_method_used || '');
+    setModalPaymentDate(request.date_paid || '');
+    setModalAdminNotes(request.admin_notes || '');
+    setShowManageRequestModal(true);
+  };
+
+  const handleCloseManageRequestModal = () => {
+    setShowManageRequestModal(false);
+    setCurrentRequest(null);
+    setModalAmountApproved('');
+    setModalPaymentMethod('');
+    setModalPaymentDate('');
+    setModalAdminNotes('');
+  };
+
+  const handleUpdateRequestStatus = async (status: 'approved' | 'rejected' | 'paid') => {
+    if (!currentRequest) return;
+
+    try {
+      const updateData: any = {
+        status,
+        admin_notes: modalAdminNotes || null,
+      };
+
+      if (status === 'approved' || status === 'paid') {
+        updateData.amount_approved = parseFloat(modalAmountApproved);
+      }
+
+      if (status === 'paid') {
+        updateData.payment_method_used = modalPaymentMethod;
+        updateData.date_paid = modalPaymentDate;
+      }
+
+      const { error } = await supabase
+        .from('payment_requests')
+        .update(updateData)
+        .eq('id', currentRequest.id);
+
+      if (error) throw error;
+
+      handleCloseManageRequestModal();
+      fetchDashboardData();
+      alert(`Payment request ${status} successfully!`);
+    } catch (error) {
+      console.error('Error updating payment request:', error);
+      alert('Error updating payment request. Please try again.');
     }
   };
 
@@ -623,36 +691,76 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Pending Payment Requests */}
+        {/* Manage Payment Requests */}
         <Card>
           <CardHeader>
             <h3 className="text-lg font-semibold flex items-center">
               <AlertCircle className="h-5 w-5 mr-2" />
-              Pending Payment Requests
+              Manage Payment Requests
             </h3>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {pendingRequests.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No pending requests</p>
+            <div className="overflow-x-auto">
+              {allPaymentRequests.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No payment requests</p>
               ) : (
-                pendingRequests.slice(0, 5).map((request) => (
-                  <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        ${request.amount_requested.toLocaleString()}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(request.requested_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        Pending
-                      </span>
-                    </div>
-                  </div>
-                ))
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Filmmaker
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount Requested
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Requested Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {allPaymentRequests.map((request) => (
+                      <tr key={request.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {request.filmmaker?.first_name && request.filmmaker?.last_name 
+                            ? `${request.filmmaker.first_name} ${request.filmmaker.last_name}`
+                            : request.filmmaker?.email
+                          }
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          ${request.amount_requested.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {request.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(request.requested_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenManageRequestModal(request)}
+                          >
+                            Manage
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </CardContent>
@@ -989,6 +1097,123 @@ export function AdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment Request Management Modal */}
+      {showManageRequestModal && currentRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Manage Payment Request</h3>
+            
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">Filmmaker</p>
+                <p className="font-medium">
+                  {currentRequest.filmmaker?.first_name && currentRequest.filmmaker?.last_name 
+                    ? `${currentRequest.filmmaker.first_name} ${currentRequest.filmmaker.last_name}`
+                    : currentRequest.filmmaker?.email
+                  }
+                </p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">Amount Requested</p>
+                <p className="font-medium">${currentRequest.amount_requested.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">Current Status</p>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  currentRequest.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  currentRequest.status === 'approved' ? 'bg-green-100 text-green-800' :
+                  currentRequest.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {currentRequest.status}
+                </span>
+              </div>
+
+              {(currentRequest.status === 'pending' || currentRequest.status === 'approved') && (
+                <Input
+                  type="number"
+                  step="0.01"
+                  label="Amount to Approve"
+                  value={modalAmountApproved}
+                  onChange={(e) => setModalAmountApproved(e.target.value)}
+                  placeholder="0.00"
+                />
+              )}
+
+              {currentRequest.status === 'approved' && (
+                <>
+                  <Input
+                    label="Payment Method"
+                    value={modalPaymentMethod}
+                    onChange={(e) => setModalPaymentMethod(e.target.value)}
+                    placeholder="e.g., PayPal, Venmo, Check"
+                  />
+                  
+                  <Input
+                    type="date"
+                    label="Payment Date"
+                    value={modalPaymentDate}
+                    onChange={(e) => setModalPaymentDate(e.target.value)}
+                  />
+                </>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Admin Notes
+                </label>
+                <textarea
+                  value={modalAdminNotes}
+                  onChange={(e) => setModalAdminNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  placeholder="Optional notes about this request"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-4">
+                {currentRequest.status === 'pending' && (
+                  <>
+                    <Button
+                      onClick={() => handleUpdateRequestStatus('approved')}
+                      className="flex-1"
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={() => handleUpdateRequestStatus('rejected')}
+                      className="flex-1"
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
+                
+                {currentRequest.status === 'approved' && (
+                  <Button
+                    onClick={() => handleUpdateRequestStatus('paid')}
+                    className="flex-1"
+                  >
+                    Mark as Paid
+                  </Button>
+                )}
+                
+                <Button
+                  variant="secondary"
+                  onClick={handleCloseManageRequestModal}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
