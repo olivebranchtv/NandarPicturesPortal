@@ -65,3 +65,35 @@ export interface PaymentRequest {
   requested_at: string;
   updated_at: string;
 }
+
+export interface StreamingPayment {
+  id: string;
+  title_id: string;
+  platform: string;
+  outlet?: string;
+  payment_date: string;
+  gross_amount: number;
+  net_amount: number;
+  distribution_percentage: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TitleDistributionSettings {
+  id: string;
+  title_id: string;
+  company_percentage: number;
+  filmmaker_percentage: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FilmmakerBalance {
+  id: string;
+  filmmaker_id: string;
+  total_earned: number;
+  total_paid: number;
+  available_balance: number;
+  last_updated: string;
+}

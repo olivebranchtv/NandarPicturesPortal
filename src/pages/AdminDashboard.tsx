@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Users, Film, DollarSign, Clock, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, Film, DollarSign, Clock, TrendingUp, AlertCircle, Plus, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
-import { supabase, Title, PaymentRequest, User } from '../lib/supabase';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { supabase, Content, PaymentRequest, User, StreamingPayment, FilmmakerBalance } from '../lib/supabase';
+
+interface PaymentFormData {
+  title_id: string;
+  platform: string;
+  outlet: string;
+  payment_date: string;
+  gross_amount: string;
+  notes: string;
+}
 
 interface DashboardStats {
   totalTitles: number;
@@ -18,10 +29,22 @@ export function AdminDashboard() {
     totalRevenue: 0,
     pendingPayments: 0,
   });
-  const [recentTitles, setRecentTitles] = useState<Title[]>([]);
+  const [recentTitles, setRecentTitles] = useState<Content[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PaymentRequest[]>([]);
+  const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
+  const [filmmakerBalances, setFilmmakerBalances] = useState<FilmmakerBalance[]>([]);
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<StreamingPayment | null>(null);
+  const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
+    title_id: '',
+    platform: '',
+    outlet: '',
+    payment_date: '',
+    gross_amount: '',
+    notes: ''
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -30,15 +53,25 @@ export function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch stats
-      const [titlesResult, usersResult, paymentsResult] = await Promise.all([
-        supabase.from('titles').select('revenue_total'),
+      const [titlesResult, usersResult, paymentsResult, streamingResult, balancesResult] = await Promise.all([
+        supabase.from('content').select('revenue_total'),
         supabase.from('users').select('id').eq('role', 'filmmaker'),
         supabase.from('payment_requests').select('*').eq('status', 'pending'),
+        supabase.from('streaming_payments').select(`
+          *,
+          content!inner(title_name, filmmaker_id)
+        `).order('payment_date', { ascending: false }),
+        supabase.from('filmmaker_balances').select(`
+          *,
+          users!inner(first_name, last_name, email)
+        `)
       ]);
 
       if (titlesResult.error) throw titlesResult.error;
       if (usersResult.error) throw usersResult.error;
       if (paymentsResult.error) throw paymentsResult.error;
+      if (streamingResult.error) throw streamingResult.error;
+      if (balancesResult.error) throw balancesResult.error;
 
       const totalRevenue = titlesResult.data?.reduce((sum, title) => sum + (title.revenue_total || 0), 0) || 0;
 
@@ -50,13 +83,15 @@ export function AdminDashboard() {
       });
 
       setPendingRequests(paymentsResult.data || []);
+      setStreamingPayments(streamingResult.data || []);
+      setFilmmakerBalances(balancesResult.data || []);
 
       // Fetch recent titles with filmmaker info
       const { data: titles, error: titlesError } = await supabase
-        .from('titles')
+        .from('content')
         .select(`
           *,
-          users!titles_filmmaker_id_fkey (first_name, last_name, email)
+          users!content_filmmaker_id_fkey (first_name, last_name, email)
         `)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -65,11 +100,10 @@ export function AdminDashboard() {
       setRecentTitles(titles || []);
 
       // Create sample revenue data for chart
-      const chartData = titles?.slice(0, 5).map(title => ({
-        title: title.title_name.substring(0, 15) + (title.title_name.length > 15 ? '...' : ''),
-        revenue: title.revenue_total || 0,
-        expenses: title.expenses_total || 0,
-        net: title.net_revenue || 0,
+      const chartData = streamingResult.data?.slice(0, 5).map(payment => ({
+        title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
+        gross: payment.gross_amount || 0,
+        net: payment.net_amount || 0,
       })) || [];
 
       setRevenueData(chartData);
@@ -77,6 +111,82 @@ export function AdminDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const paymentData = {
+        title_id: paymentForm.title_id,
+        platform: paymentForm.platform,
+        outlet: paymentForm.outlet || null,
+        payment_date: paymentForm.payment_date,
+        gross_amount: parseFloat(paymentForm.gross_amount),
+        notes: paymentForm.notes || null
+      };
+
+      if (editingPayment) {
+        const { error } = await supabase
+          .from('streaming_payments')
+          .update(paymentData)
+          .eq('id', editingPayment.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('streaming_payments')
+          .insert(paymentData);
+        
+        if (error) throw error;
+      }
+
+      // Reset form and refresh data
+      setPaymentForm({
+        title_id: '',
+        platform: '',
+        outlet: '',
+        payment_date: '',
+        gross_amount: '',
+        notes: ''
+      });
+      setShowPaymentForm(false);
+      setEditingPayment(null);
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error saving payment:', error);
+      alert('Error saving payment. Please try again.');
+    }
+  };
+
+  const handleEditPayment = (payment: StreamingPayment) => {
+    setEditingPayment(payment);
+    setPaymentForm({
+      title_id: payment.title_id,
+      platform: payment.platform,
+      outlet: payment.outlet || '',
+      payment_date: payment.payment_date,
+      gross_amount: payment.gross_amount.toString(),
+      notes: payment.notes || ''
+    });
+    setShowPaymentForm(true);
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!confirm('Are you sure you want to delete this payment?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('streaming_payments')
+        .delete()
+        .eq('id', paymentId);
+      
+      if (error) throw error;
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      alert('Error deleting payment. Please try again.');
     }
   };
 
@@ -157,8 +267,8 @@ export function AdminDashboard() {
                 <XAxis dataKey="title" />
                 <YAxis />
                 <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, '']} />
-                <Bar dataKey="revenue" fill="#3B82F6" name="Revenue" />
-                <Bar dataKey="net" fill="#10B981" name="Net Revenue" />
+                <Bar dataKey="gross" fill="#3B82F6" name="Gross Revenue" />
+                <Bar dataKey="net" fill="#10B981" name="Net to Filmmaker" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -194,6 +304,196 @@ export function AdminDashboard() {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Payment Management Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Add Payment Form */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Streaming Payments</h3>
+              <Button
+                onClick={() => {
+                  setShowPaymentForm(!showPaymentForm);
+                  setEditingPayment(null);
+                  setPaymentForm({
+                    title_id: '',
+                    platform: '',
+                    outlet: '',
+                    payment_date: '',
+                    gross_amount: '',
+                    notes: ''
+                  });
+                }}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Payment
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showPaymentForm && (
+              <form onSubmit={handlePaymentSubmit} className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <select
+                    value={paymentForm.title_id}
+                    onChange={(e) => setPaymentForm({...paymentForm, title_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select a title</option>
+                    {recentTitles.map(title => (
+                      <option key={title.id} value={title.id}>
+                        {title.title_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <Input
+                  label="Platform"
+                  value={paymentForm.platform}
+                  onChange={(e) => setPaymentForm({...paymentForm, platform: e.target.value})}
+                  placeholder="e.g., Netflix, Hulu, Amazon Prime"
+                  required
+                />
+                
+                <Input
+                  label="Outlet (Optional)"
+                  value={paymentForm.outlet}
+                  onChange={(e) => setPaymentForm({...paymentForm, outlet: e.target.value})}
+                  placeholder="e.g., Specific channel or service"
+                />
+                
+                <Input
+                  type="date"
+                  label="Payment Date"
+                  value={paymentForm.payment_date}
+                  onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})}
+                  required
+                />
+                
+                <Input
+                  type="number"
+                  step="0.01"
+                  label="Gross Amount"
+                  value={paymentForm.gross_amount}
+                  onChange={(e) => setPaymentForm({...paymentForm, gross_amount: e.target.value})}
+                  placeholder="0.00"
+                  required
+                />
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={paymentForm.notes}
+                    onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    rows={3}
+                    placeholder="Additional notes about this payment"
+                  />
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button type="submit">
+                    {editingPayment ? 'Update Payment' : 'Add Payment'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setShowPaymentForm(false);
+                      setEditingPayment(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+            
+            {/* Recent Payments List */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900">Recent Payments</h4>
+              {streamingPayments.slice(0, 5).map((payment: any) => (
+                <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {payment.content.title_name}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {payment.platform} • {new Date(payment.payment_date).toLocaleDateString()}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Gross: ${payment.gross_amount.toLocaleString()} → Net: ${payment.net_amount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleEditPayment(payment)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDeletePayment(payment.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Filmmaker Balances */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Filmmaker Balances</h3>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {filmmakerBalances.map((balance: any) => (
+                <div key={balance.id} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {balance.users?.first_name && balance.users?.last_name 
+                          ? `${balance.users.first_name} ${balance.users.last_name}`
+                          : balance.users?.email
+                        }
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Earned: ${balance.total_earned.toLocaleString()} • 
+                        Paid: ${balance.total_paid.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-lg text-gray-900">
+                        ${balance.available_balance.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500">Available</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filmmakerBalances.length === 0 && (
+                <p className="text-gray-500 text-center py-4">No filmmaker balances yet</p>
               )}
             </div>
           </CardContent>
