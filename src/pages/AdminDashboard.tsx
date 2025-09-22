@@ -24,6 +24,7 @@ interface TitleFormData {
   release_date: string;
   duration_minutes: string;
   rating: string;
+  company_percentage: string;
 }
 
 interface DashboardStats {
@@ -68,7 +69,8 @@ export function AdminDashboard() {
     genre: '',
     release_date: '',
     duration_minutes: '',
-    rating: ''
+    rating: '',
+    company_percentage: '50'
   });
 
   useEffect(() => {
@@ -119,7 +121,8 @@ export function AdminDashboard() {
         .from('content')
         .select(`
           *,
-          users!content_filmmaker_id_fkey (first_name, last_name, email)
+          users!content_filmmaker_id_fkey (first_name, last_name, email),
+          title_distribution_settings (company_percentage, filmmaker_percentage)
         `)
         .order('created_at', { ascending: false });
 
@@ -158,6 +161,8 @@ export function AdminDashboard() {
         status: 'approved' // Admin-added titles are automatically approved
       };
 
+      let titleId: string;
+
       if (editingTitle) {
         const { error } = await supabase
           .from('content')
@@ -165,12 +170,42 @@ export function AdminDashboard() {
           .eq('id', editingTitle.id);
         
         if (error) throw error;
+        titleId = editingTitle.id;
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('content')
-          .insert(titleData);
+          .insert(titleData)
+          .select('id')
+          .single();
         
         if (error) throw error;
+        titleId = data.id;
+      }
+
+      // Handle distribution settings
+      const companyPercentage = parseFloat(titleForm.company_percentage);
+      const filmmakerPercentage = 100 - companyPercentage;
+
+      const distributionData = {
+        title_id: titleId,
+        company_percentage: companyPercentage,
+        filmmaker_percentage: filmmakerPercentage
+      };
+
+      if (editingTitle) {
+        // Update existing distribution settings
+        const { error: distError } = await supabase
+          .from('title_distribution_settings')
+          .upsert(distributionData);
+        
+        if (distError) throw distError;
+      } else {
+        // Insert new distribution settings
+        const { error: distError } = await supabase
+          .from('title_distribution_settings')
+          .insert(distributionData);
+        
+        if (distError) throw distError;
       }
 
       // Reset form and refresh data
@@ -182,7 +217,8 @@ export function AdminDashboard() {
         genre: '',
         release_date: '',
         duration_minutes: '',
-        rating: ''
+        rating: '',
+        company_percentage: '50'
       });
       setShowTitleForm(false);
       setEditingTitle(null);
@@ -195,6 +231,7 @@ export function AdminDashboard() {
 
   const handleEditTitle = (title: Content) => {
     setEditingTitle(title);
+    const distributionSettings = title.title_distribution_settings?.[0];
     setTitleForm({
       title_name: title.title_name,
       content_type: title.content_type,
@@ -203,7 +240,8 @@ export function AdminDashboard() {
       genre: title.genre || '',
       release_date: title.release_date || '',
       duration_minutes: title.duration_minutes?.toString() || '',
-      rating: title.rating || ''
+      rating: title.rating || '',
+      company_percentage: distributionSettings?.company_percentage?.toString() || '50'
     });
     setShowTitleForm(true);
   };
@@ -380,7 +418,8 @@ export function AdminDashboard() {
                     genre: '',
                     release_date: '',
                     duration_minutes: '',
-                    rating: ''
+                    rating: '',
+                    company_percentage: '50'
                   });
                 }}
                 size="sm"
@@ -485,6 +524,21 @@ export function AdminDashboard() {
                   />
                 </div>
                 
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  label="Company Distribution Percentage (%)"
+                  value={titleForm.company_percentage}
+                  onChange={(e) => setTitleForm({...titleForm, company_percentage: e.target.value})}
+                  placeholder="50"
+                  required
+                />
+                <p className="text-xs text-gray-500 -mt-3">
+                  Filmmaker will receive {100 - parseFloat(titleForm.company_percentage || '0')}% of payments
+                </p>
+                
                 <div className="flex space-x-2">
                   <Button type="submit">
                     <Save className="h-4 w-4 mr-2" />
@@ -515,7 +569,8 @@ export function AdminDashboard() {
                       {title.title_name}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {title.content_type} • {title.genre || 'No genre'}
+                      {title.content_type} • {title.genre || 'No genre'} • 
+                      Company: {title.title_distribution_settings?.[0]?.company_percentage || 50}%
                     </p>
                     <p className="text-sm text-gray-600">
                       Filmmaker: {title.users?.first_name && title.users?.last_name 
@@ -820,6 +875,9 @@ export function AdminDashboard() {
                     Revenue
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Split (Co/Film)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -846,6 +904,9 @@ export function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       ${title.revenue_total?.toLocaleString() || '0'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {title.title_distribution_settings?.[0]?.company_percentage || 50}% / {title.title_distribution_settings?.[0]?.filmmaker_percentage || 50}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">

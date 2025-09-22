@@ -47,6 +47,7 @@ export interface Content {
   rating?: string;
   created_at: string;
   updated_at: string;
+  title_distribution_settings?: TitleDistributionSettings[];
 }
 
 // Keep Title interface for backward compatibility
