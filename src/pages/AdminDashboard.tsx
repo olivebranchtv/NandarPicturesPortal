@@ -68,6 +68,7 @@ export function AdminDashboard() {
   const [newFilmmakerLastName, setNewFilmmakerLastName] = useState('');
   const [newFilmmakerError, setNewFilmmakerError] = useState('');
   const [newFilmmakerSuccess, setNewFilmmakerSuccess] = useState('');
+  const [creatingFilmmaker, setCreatingFilmmaker] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
     title_id: '',
     platform: '',
