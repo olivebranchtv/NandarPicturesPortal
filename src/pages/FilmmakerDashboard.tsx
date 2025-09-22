@@ -3,14 +3,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Film, DollarSign, Clock, TrendingUp, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { supabase, Title, PaymentRequest } from '../lib/supabase';
+import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
 interface FilmmakerStats {
   totalTitles: number;
-  totalRevenue: number;
-  totalExpenses: number;
-  netRevenue: number;
+  totalEarned: number;
+  totalPaid: number;
   availableBalance: number;
 }
 
@@ -18,13 +17,14 @@ export function FilmmakerDashboard() {
   const { profile } = useAuth();
   const [stats, setStats] = useState<FilmmakerStats>({
     totalTitles: 0,
-    totalRevenue: 0,
-    totalExpenses: 0,
-    netRevenue: 0,
+    totalEarned: 0,
+    totalPaid: 0,
     availableBalance: 0,
   });
-  const [titles, setTitles] = useState<Title[]>([]);
+  const [titles, setTitles] = useState<Content[]>([]);
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
+  const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
+  const [balance, setBalance] = useState<FilmmakerBalance | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,18 +39,35 @@ export function FilmmakerDashboard() {
     try {
       // Fetch filmmaker's titles
       const { data: titlesData, error: titlesError } = await supabase
-        .from('titles')
+        .from('content')
         .select('*')
         .eq('filmmaker_id', profile.id);
 
       if (titlesError) throw titlesError;
-
       setTitles(titlesData || []);
 
-      // Calculate stats
-      const totalRevenue = titlesData?.reduce((sum, title) => sum + (title.revenue_total || 0), 0) || 0;
-      const totalExpenses = titlesData?.reduce((sum, title) => sum + (title.expenses_total || 0) + (title.distribution_fee || 0), 0) || 0;
-      const netRevenue = totalRevenue - totalExpenses;
+      // Fetch filmmaker's balance
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('filmmaker_balances')
+        .select('*')
+        .eq('filmmaker_id', profile.id)
+        .single();
+
+      if (balanceError && balanceError.code !== 'PGRST116') throw balanceError;
+      setBalance(balanceData);
+
+      // Fetch streaming payments for filmmaker's titles
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('streaming_payments')
+        .select(`
+          *,
+          content!inner(title_name, filmmaker_id)
+        `)
+        .eq('content.filmmaker_id', profile.id)
+        .order('payment_date', { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+      setStreamingPayments(paymentsData || []);
 
       // Fetch payment requests to calculate available balance
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -62,19 +79,11 @@ export function FilmmakerDashboard() {
 
       setPaymentRequests(paymentsData || []);
 
-      // Calculate available balance (net revenue minus paid/approved payments)
-      const paidAmount = paymentsData
-        ?.filter(p => p.status === 'paid')
-        .reduce((sum, p) => sum + (p.amount_approved || p.amount_requested), 0) || 0;
-      
-      const availableBalance = Math.max(0, netRevenue - paidAmount);
-
       setStats({
         totalTitles: titlesData?.length || 0,
-        totalRevenue,
-        totalExpenses,
-        netRevenue,
-        availableBalance,
+        totalEarned: balanceData?.total_earned || 0,
+        totalPaid: balanceData?.total_paid || 0,
+        availableBalance: balanceData?.available_balance || 0,
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -84,15 +93,15 @@ export function FilmmakerDashboard() {
   };
 
   const handleRequestPayment = async () => {
-    if (!profile?.id || stats.availableBalance < 100) return;
+    if (!profile?.id || !balance || balance.available_balance < 100) return;
 
     try {
       const { error } = await supabase
         .from('payment_requests')
         .insert({
           filmmaker_id: profile.id,
-          title_id: titles[0]?.id, // For now, use first title - in real app, let user select
-          amount_requested: stats.availableBalance,
+          content_id: titles[0]?.id, // For now, use first title
+          amount_requested: balance.available_balance,
         });
 
       if (error) throw error;
@@ -130,11 +139,10 @@ export function FilmmakerDashboard() {
     );
   }
 
-  const chartData = titles.map(title => ({
-    title: title.title_name.substring(0, 15) + (title.title_name.length > 15 ? '...' : ''),
-    revenue: title.revenue_total || 0,
-    expenses: title.expenses_total + title.distribution_fee || 0,
-    net: title.net_revenue || 0,
+  const chartData = streamingPayments.slice(0, 5).map(payment => ({
+    title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
+    gross: payment.gross_amount || 0,
+    net: payment.net_amount || 0,
   }));
 
   return (
@@ -156,14 +164,14 @@ export function FilmmakerDashboard() {
         />
         <StatCard
           icon={DollarSign}
-          title="Total Revenue"
-          value={`$${stats.totalRevenue.toLocaleString()}`}
+          title="Total Earned"
+          value={`$${stats.totalEarned.toLocaleString()}`}
           color="bg-green-600"
         />
         <StatCard
           icon={TrendingUp}
-          title="Net Revenue"
-          value={`$${stats.netRevenue.toLocaleString()}`}
+          title="Total Paid"
+          value={`$${stats.totalPaid.toLocaleString()}`}
           color="bg-purple-600"
         />
         <StatCard
@@ -180,27 +188,27 @@ export function FilmmakerDashboard() {
           <CardHeader>
             <h3 className="text-lg font-semibold flex items-center">
               <TrendingUp className="h-5 w-5 mr-2" />
-              Title Performance
+              Recent Payments
             </h3>
           </CardHeader>
           <CardContent>
-            {titles.length > 0 ? (
+            {streamingPayments.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="title" />
                   <YAxis />
                   <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, '']} />
-                  <Bar dataKey="revenue" fill="#3B82F6" name="Revenue" />
-                  <Bar dataKey="net" fill="#10B981" name="Net Revenue" />
+                  <Bar dataKey="gross" fill="#3B82F6" name="Gross Payment" />
+                  <Bar dataKey="net" fill="#10B981" name="Your Share" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-500">
                 <div className="text-center">
                   <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No titles assigned yet</p>
-                  <p className="text-sm">Contact admin to get your titles added</p>
+                  <p>No payments received yet</p>
+                  <p className="text-sm">Payments will appear here once received</p>
                 </div>
               </div>
             )}
@@ -241,13 +249,13 @@ export function FilmmakerDashboard() {
         </Card>
       </div>
 
-      {/* Titles Table */}
+      {/* Streaming Payments Table */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">My Titles</h3>
+          <h3 className="text-lg font-semibold">Payment History</h3>
         </CardHeader>
         <CardContent>
-          {titles.length > 0 ? (
+          {streamingPayments.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -256,36 +264,36 @@ export function FilmmakerDashboard() {
                       Title
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Revenue
+                      Platform
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Expenses
+                      Payment Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Net Revenue
+                      Gross Amount
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Added
+                      Your Share
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {titles.map((title) => (
-                    <tr key={title.id}>
+                  {streamingPayments.map((payment: any) => (
+                    <tr key={payment.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {title.title_name}
+                        {payment.content.title_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${title.revenue_total?.toLocaleString() || '0'}
+                        {payment.platform}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${((title.expenses_total || 0) + (title.distribution_fee || 0)).toLocaleString()}
+                        {new Date(payment.payment_date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${title.net_revenue?.toLocaleString() || '0'}
+                        ${payment.gross_amount.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(title.created_at).toLocaleDateString()}
+                        ${payment.net_amount.toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -295,9 +303,9 @@ export function FilmmakerDashboard() {
           ) : (
             <div className="text-center py-12">
               <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No titles yet</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No payments yet</h3>
               <p className="text-gray-500">
-                Your titles will appear here once they're added by admin
+                Payment history will appear here once payments are received
               </p>
             </div>
           )}
