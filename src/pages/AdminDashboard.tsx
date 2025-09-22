@@ -29,6 +29,7 @@ interface NewTitleForm {
   previous_net_revenue: string;
   previous_amount_paid: string;
   previous_balance_due: string;
+  distribution_percentage: string;
 }
 
 interface NewFilmmakerForm {
@@ -82,6 +83,7 @@ export function AdminDashboard() {
     previous_net_revenue: '',
     previous_amount_paid: '',
     previous_balance_due: '',
+    distribution_percentage: '20',
   });
   
   const [newFilmmaker, setNewFilmmaker] = useState<NewFilmmakerForm>({
@@ -290,7 +292,7 @@ export function AdminDashboard() {
     if (!supabase) return;
 
     try {
-      const { error } = await supabase
+      const { data: insertedTitle, error } = await supabase
         .from('content')
         .insert({
           title_name: newTitle.title_name,
@@ -308,9 +310,30 @@ export function AdminDashboard() {
           previous_net_revenue: newTitle.previous_net_revenue ? parseFloat(newTitle.previous_net_revenue) : 0,
           previous_amount_paid: newTitle.previous_amount_paid ? parseFloat(newTitle.previous_amount_paid) : 0,
           previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Create distribution settings for the title
+      if (insertedTitle) {
+        const companyPercentage = parseFloat(newTitle.distribution_percentage);
+        const filmmakerPercentage = 100 - companyPercentage;
+        
+        const { error: distributionError } = await supabase
+          .from('title_distribution_settings')
+          .insert({
+            title_id: insertedTitle.id,
+            company_percentage: companyPercentage,
+            filmmaker_percentage: filmmakerPercentage,
+          });
+
+        if (distributionError) {
+          console.error('Error creating distribution settings:', distributionError);
+          // Don't throw here as the title was created successfully
+        }
+      }
 
       // Reset form and refresh data
       setNewTitle({
@@ -328,6 +351,7 @@ export function AdminDashboard() {
         previous_net_revenue: '',
         previous_amount_paid: '',
         previous_balance_due: '',
+        distribution_percentage: '20',
       });
       setShowAddTitle(false);
       fetchDashboardData();
@@ -920,6 +944,25 @@ export function AdminDashboard() {
                       placeholder="0.00"
                     />
                   </div>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">Distribution Settings</h4>
+                  <Input
+                    label="Our Distribution Percentage (%)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={newTitle.distribution_percentage}
+                    onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
+                    placeholder="20"
+                    required
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This percentage determines how much of any payment goes to the company vs. the filmmaker.
+                    For example, with 20%, if we receive $100, the filmmaker gets $80.
+                  </p>
                 </div>
 
                 <div className="flex space-x-2">
