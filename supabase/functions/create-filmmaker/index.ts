@@ -13,14 +13,18 @@ interface CreateFilmmakerRequest {
 }
 
 Deno.serve(async (req) => {
+  console.log('Create filmmaker function called with method:', req.method)
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request')
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     // Only allow POST requests
     if (req.method !== 'POST') {
+      console.log('Method not allowed:', req.method)
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
         { 
@@ -30,9 +34,34 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Get environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
+
+    console.log('Environment check:', {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      hasAnonKey: !!supabaseAnonKey
+    })
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error('Missing environment variables')
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     // Get the authorization header
     const authHeader = req.headers.get('Authorization')
+    console.log('Auth header present:', !!authHeader)
+    
     if (!authHeader) {
+      console.log('Missing authorization header')
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
         { 
@@ -42,27 +71,22 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create Supabase client with service role key
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // Create Supabase clients
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    })
 
-    // Create regular client to verify the requesting user is an admin
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    )
+    console.log('Supabase clients created')
 
     // Verify the requesting user is authenticated and is an admin
     const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log('Auth check result:', { hasUser: !!user, authError: authError?.message })
+    
     if (authError || !user) {
-      console.error('Auth error:', authError)
+      console.error('Authentication failed:', authError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { 
@@ -79,8 +103,10 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single()
 
+    console.log('Profile check result:', { profile, profileError: profileError?.message })
+
     if (profileError || profile?.role !== 'admin') {
-      console.error('Profile error:', profileError, 'Role:', profile?.role)
+      console.error('Admin check failed:', { profileError, role: profile?.role })
       return new Response(
         JSON.stringify({ error: 'Forbidden: Admin access required' }),
         { 
@@ -91,10 +117,26 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, first_name, last_name }: CreateFilmmakerRequest = await req.json()
+    let requestBody: CreateFilmmakerRequest
+    try {
+      requestBody = await req.json()
+      console.log('Request body parsed:', { email: requestBody.email, hasFirstName: !!requestBody.first_name, hasLastName: !!requestBody.last_name })
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const { email, first_name, last_name } = requestBody
 
     // Validate required fields
     if (!email || !first_name || !last_name) {
+      console.log('Missing required fields:', { email: !!email, first_name: !!first_name, last_name: !!last_name })
       return new Response(
         JSON.stringify({ error: 'Missing required fields: email, first_name, last_name' }),
         { 
@@ -104,16 +146,16 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Creating filmmaker with:', { email, first_name, last_name })
-
     // Generate a temporary password
     const tempPassword = 'TempPass123!'
+    console.log('Generated temporary password')
 
     // Create the user using admin API
+    console.log('Creating auth user...')
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: {
         first_name,
         last_name,
@@ -124,7 +166,10 @@ Deno.serve(async (req) => {
     if (createError) {
       console.error('Error creating auth user:', createError)
       return new Response(
-        JSON.stringify({ error: `Failed to create auth user: ${createError.message}` }),
+        JSON.stringify({ 
+          error: `Failed to create auth user: ${createError.message}`,
+          details: createError
+        }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -143,9 +188,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Auth user created successfully:', newUser.user.id)
+    console.log('Auth user created successfully with ID:', newUser.user.id)
 
     // Insert user profile into users table using service role
+    console.log('Creating user profile...')
     const { data: insertedUser, error: insertError } = await supabaseAdmin
       .from('users')
       .insert({
@@ -162,9 +208,10 @@ Deno.serve(async (req) => {
       console.error('Error inserting user profile:', insertError)
       
       // Try to clean up the auth user if profile creation failed
+      console.log('Attempting to clean up auth user...')
       try {
         await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-        console.log('Cleaned up auth user after profile creation failure')
+        console.log('Successfully cleaned up auth user')
       } catch (cleanupError) {
         console.error('Failed to cleanup auth user:', cleanupError)
       }
@@ -183,7 +230,7 @@ Deno.serve(async (req) => {
 
     console.log('Successfully created filmmaker profile:', insertedUser)
 
-    // Return success response with user ID and temporary password
+    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
@@ -205,7 +252,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message 
+        message: error.message,
+        stack: error.stack
       }),
       { 
         status: 500, 
