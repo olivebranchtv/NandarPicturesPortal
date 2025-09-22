@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
     // Verify the requesting user is authenticated and is an admin
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.error('Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { 
@@ -79,6 +80,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || profile?.role !== 'admin') {
+      console.error('Profile error:', profileError, 'Role:', profile?.role)
       return new Response(
         JSON.stringify({ error: 'Forbidden: Admin access required' }),
         { 
@@ -102,6 +104,8 @@ Deno.serve(async (req) => {
       )
     }
 
+    console.log('Creating filmmaker with:', { email, first_name, last_name })
+
     // Generate a temporary password
     const tempPassword = 'TempPass123!'
 
@@ -110,12 +114,17 @@ Deno.serve(async (req) => {
       email,
       password: tempPassword,
       email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        first_name,
+        last_name,
+        role: 'filmmaker'
+      }
     })
 
     if (createError) {
-      console.error('Error creating user:', createError)
+      console.error('Error creating auth user:', createError)
       return new Response(
-        JSON.stringify({ error: createError.message }),
+        JSON.stringify({ error: `Failed to create auth user: ${createError.message}` }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -124,8 +133,9 @@ Deno.serve(async (req) => {
     }
 
     if (!newUser.user) {
+      console.error('No user returned from auth creation')
       return new Response(
-        JSON.stringify({ error: 'Failed to create user' }),
+        JSON.stringify({ error: 'Failed to create user - no user returned' }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -133,7 +143,9 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Insert user profile into users table
+    console.log('Auth user created successfully:', newUser.user.id)
+
+    // Insert user profile into users table using service role
     const { data: insertedUser, error: insertError } = await supabaseAdmin
       .from('users')
       .insert({
@@ -148,11 +160,20 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error('Error inserting user profile:', insertError)
+      
       // Try to clean up the auth user if profile creation failed
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+        console.log('Cleaned up auth user after profile creation failure')
+      } catch (cleanupError) {
+        console.error('Failed to cleanup auth user:', cleanupError)
+      }
       
       return new Response(
-        JSON.stringify({ error: 'Failed to create user profile' }),
+        JSON.stringify({ 
+          error: `Failed to create user profile: ${insertError.message}`,
+          details: insertError
+        }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -160,7 +181,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log('Successfully created filmmaker:', insertedUser)
+    console.log('Successfully created filmmaker profile:', insertedUser)
 
     // Return success response with user ID and temporary password
     return new Response(
@@ -180,9 +201,12 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Unexpected error in create-filmmaker function:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message 
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
