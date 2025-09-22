@@ -86,6 +86,12 @@ export function AdminDashboard() {
     release_date: '',
     duration_minutes: '',
     rating: '',
+    previous_gross_amount: '',
+    previous_expenses: '',
+    previous_distribution_fee: '',
+    previous_net_revenue: '',
+    previous_amount_paid: '',
+    previous_balance_due: ''
     company_percentage: '50'
   });
 
@@ -351,6 +357,18 @@ export function AdminDashboard() {
         release_date: '',
         duration_minutes: '',
         rating: '',
+        previous_gross_amount: '',
+        previous_expenses: '',
+        previous_distribution_fee: '',
+        previous_net_revenue: '',
+        previous_amount_paid: '',
+        previous_balance_due: ''
+        previous_gross_amount: title.previous_gross_amount?.toString() || '0',
+        previous_expenses: title.previous_expenses?.toString() || '0',
+        previous_distribution_fee: title.previous_distribution_fee?.toString() || '0',
+        previous_net_revenue: title.previous_net_revenue?.toString() || '0',
+        previous_amount_paid: title.previous_amount_paid?.toString() || '0',
+        previous_balance_due: title.previous_balance_due?.toString() || '0'
         company_percentage: '50'
       });
       setShowTitleForm(false);

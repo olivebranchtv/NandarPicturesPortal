@@ -40,6 +40,12 @@ export interface Content {
   distribution_fee: number;
   expenses_total: number;
   net_revenue: number;
+  previous_gross_amount: number;
+  previous_expenses: number;
+  previous_distribution_fee: number;
+  previous_net_revenue: number;
+  previous_amount_paid: number;
+  previous_balance_due: number;
   description?: string;
   genre?: string;
   release_date?: string;
