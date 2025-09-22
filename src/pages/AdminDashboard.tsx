@@ -88,7 +88,29 @@ export function AdminDashboard() {
     notes: '',
   });
 
-  // Data fetching functions
+  useEffect(() => {
+    fetchDashboardData();
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      await Promise.all([
+        fetchTitles(),
+        fetchFilmmakers(),
+        fetchPaymentRequests(),
+        fetchStreamingPayments(),
+      ]);
+      calculateStats();
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchTitles = async () => {
     if (!supabase) return;
     
@@ -139,9 +161,9 @@ export function AdminDashboard() {
           *,
           filmmaker:filmmaker_id (
             id,
+            email,
             first_name,
-            last_name,
-            email
+            last_name
           )
         `)
         .order('requested_at', { ascending: false });
@@ -160,13 +182,16 @@ export function AdminDashboard() {
 
   const fetchStreamingPayments = async () => {
     if (!supabase) return;
-
+    
     try {
       const { data, error } = await supabase
         .from('streaming_payments')
         .select(`
           *,
-          content!inner(title_name, filmmaker_id)
+          content:title_id (
+            id,
+            title_name
+          )
         `)
         .order('payment_date', { ascending: false });
 
@@ -174,6 +199,7 @@ export function AdminDashboard() {
         console.error('Error fetching streaming payments:', error);
         return;
       }
+      
       setStreamingPayments(data || []);
     } catch (error) {
       console.error('Unexpected error fetching streaming payments:', error);
@@ -193,29 +219,6 @@ export function AdminDashboard() {
       totalRevenue,
       pendingApprovals,
     });
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-    // Set up auto-refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      await Promise.all([
-        fetchTitles(),
-        fetchFilmmakers(),
-        fetchPaymentRequests(),
-        fetchStreamingPayments(),
-      ]);
-      calculateStats();
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Recalculate stats whenever data changes
