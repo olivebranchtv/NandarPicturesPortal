@@ -25,6 +25,8 @@ interface TitleFormData {
   duration_minutes: string;
   rating: string;
   company_percentage: string;
+  initial_revenue_total: string;
+  initial_expenses_total: string;
 }
 
 interface DashboardStats {
@@ -605,6 +607,31 @@ export function AdminDashboard() {
                 />
                 <p className="text-xs text-gray-500 -mt-3">
                   Filmmaker will receive {100 - parseFloat(titleForm.company_percentage || '0')}% of payments
+                </p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    label="Initial Revenue Balance ($)"
+                    value={titleForm.initial_revenue_total}
+                    onChange={(e) => setTitleForm({...titleForm, initial_revenue_total: e.target.value})}
+                    placeholder="0.00"
+                  />
+                  
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    label="Initial Expense Balance ($)"
+                    value={titleForm.initial_expenses_total}
+                    onChange={(e) => setTitleForm({...titleForm, initial_expenses_total: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 -mt-3">
+                  Enter previous revenue and expenses from your old accounting system
                 </p>
                 
                 <div className="flex space-x-2">
