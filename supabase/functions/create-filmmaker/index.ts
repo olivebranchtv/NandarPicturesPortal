@@ -1,5 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +12,7 @@ interface CreateFilmmakerRequest {
   last_name: string
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -111,11 +110,6 @@ serve(async (req) => {
       email,
       password: tempPassword,
       email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        first_name,
-        last_name,
-        role: 'filmmaker'
-      }
     })
 
     if (createError) {
@@ -140,7 +134,7 @@ serve(async (req) => {
     }
 
     // Insert user profile into users table
-    const { error: insertError } = await supabaseAdmin
+    const { data: insertedUser, error: insertError } = await supabaseAdmin
       .from('users')
       .insert({
         id: newUser.user.id,
@@ -149,6 +143,8 @@ serve(async (req) => {
         last_name,
         role: 'filmmaker'
       })
+      .select()
+      .single()
 
     if (insertError) {
       console.error('Error inserting user profile:', insertError)
@@ -163,6 +159,8 @@ serve(async (req) => {
         }
       )
     }
+
+    console.log('Successfully created filmmaker:', insertedUser)
 
     // Return success response with user ID and temporary password
     return new Response(
