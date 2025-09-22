@@ -131,30 +131,55 @@ export function AdminDashboard() {
     if (!supabase) return;
     
     try {
-      console.log('Fetching filmmakers from users table...');
+      console.log('=== FILMMAKER FETCH DEBUG START ===');
+      console.log('Supabase client exists:', !!supabase);
+      console.log('Current user profile:', profile);
+      
       const { data: filmmakerData, error } = await supabase
         .from('users')
-        .select('id, email, first_name, last_name, role, created_at')
+        .select('*')
         .eq('role', 'filmmaker')
         .order('created_at', { ascending: false });
+      
+      console.log('Raw Supabase response:', { data: filmmakerData, error });
+      console.log('Error details:', error ? {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      } : 'No error');
 
       if (error) {
-        console.error('Error fetching filmmakers from users table:', error);
-        console.error('Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
+        console.error('=== SUPABASE ERROR ===');
+        console.error('Full error object:', error);
+        console.error('Error message:', error.message);
+        console.error('Error code:', error.code);
+        console.error('Error details:', error.details);
+        console.error('Error hint:', error.hint);
+        console.error('=== END SUPABASE ERROR ===');
         return;
       }
       
-      console.log('Successfully fetched filmmakers:', filmmakerData);
-      console.log('Number of filmmakers found:', filmmakerData?.length || 0);
+      console.log('=== FETCH SUCCESS ===');
+      console.log('Filmmakers data:', filmmakerData);
+      console.log('Data type:', typeof filmmakerData);
+      console.log('Is array:', Array.isArray(filmmakerData));
+      console.log('Length:', filmmakerData?.length);
+      
+      if (filmmakerData && filmmakerData.length > 0) {
+        console.log('First filmmaker:', filmmakerData[0]);
+        console.log('All filmmaker emails:', filmmakerData.map(f => f.email));
+      }
+      
       setFilmmakers(filmmakerData || []);
+      console.log('=== FILMMAKER FETCH DEBUG END ===');
     } catch (error) {
-      console.error('Unexpected error fetching filmmakers from users table:', error);
+      console.error('=== UNEXPECTED ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
+      console.error('Error name:', error.name);
+      console.error('=== END UNEXPECTED ERROR ===');
       setFilmmakers([]);
     }
   };
