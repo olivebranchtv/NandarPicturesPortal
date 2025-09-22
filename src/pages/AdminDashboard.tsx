@@ -130,63 +130,22 @@ export function AdminDashboard() {
   const fetchFilmmakers = async () => {
     if (!supabase) return;
     
-    console.log('🎬 Fetching ALL users from users table (admin override)...');
+    console.log('🎬 Fetching filmmakers from users table...');
     
     try {
-      // First, let's try with RLS disabled for admin
-      console.log('🔓 Attempting to fetch users with admin privileges...');
-      
-      // Try multiple approaches to get the data
-      let allUsers = null;
-      let error = null;
-      
-      // Approach 1: Try with rpc call that bypasses RLS
-      console.log('📞 Trying RPC approach...');
-      const { data: rpcData, error: rpcError } = await supabase
-        .rpc('get_all_users_for_admin');
-      
-      if (rpcError) {
-        console.log('❌ RPC failed, trying direct query:', rpcError.message);
-        
-        // Approach 2: Direct query (this should work if admin policies are correct)
-        const { data: directData, error: directError } = await supabase
-          .from('users')
-          .select('id, email, first_name, last_name, role, created_at')
-          .order('created_at', { ascending: false });
-        
-        allUsers = directData;
-        error = directError;
-      } else {
-        allUsers = rpcData;
-        error = rpcError;
-      }
+      // Direct query to fetch all users
+      const { data: allUsers, error } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name, role, created_at')
+        .order('created_at', { ascending: false });
       
       console.log('📊 Raw users data from database:', allUsers);
       console.log('❌ Database error (if any):', error);
       
       if (error) {
         console.error('💥 Failed to fetch users:', error);
-        console.error('🔍 Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        // Try one more approach - fetch with minimal select
-        console.log('🔄 Trying minimal select approach...');
-        const { data: minimalData, error: minimalError } = await supabase
-          .from('users')
-          .select('*');
-        
-        if (minimalError) {
-          console.error('💥 All approaches failed:', minimalError);
-          setFilmmakers([]);
-          return;
-        }
-        
-        allUsers = minimalData;
-        console.log('✅ Minimal select worked:', allUsers);
+        setFilmmakers([]);
+        return;
       }
       
       if (!allUsers || !Array.isArray(allUsers)) {

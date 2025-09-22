@@ -41,7 +41,7 @@ export function useAuth() {
 
   const fetchProfile = async (userId: string) => {
     if (!supabase) {
-      console.error('Supabase client not configured. Please check your environment variables.');
+      console.warn('Supabase client not configured. Please connect to Supabase using the button in the top right.');
       setLoading(false);
       return;
     }
@@ -56,9 +56,7 @@ export function useAuth() {
       if (error) throw error;
       setProfile(data);
     } catch (error) {
-      console.error('Error fetching profile:', error);
-      console.error('This usually means Supabase is not properly configured.');
-      console.error('Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+      console.warn('Could not fetch user profile. Please ensure Supabase is properly connected.');
       setProfile(null);
     } finally {
       setLoading(false);
