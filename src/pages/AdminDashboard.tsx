@@ -91,7 +91,7 @@ export function AdminDashboard() {
     previous_distribution_fee: '',
     previous_net_revenue: '',
     previous_amount_paid: '',
-    previous_balance_due: ''
+    previous_balance_due: '',
     company_percentage: '50'
   });
 
