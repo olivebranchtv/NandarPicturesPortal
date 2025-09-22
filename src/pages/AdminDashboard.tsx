@@ -189,8 +189,6 @@ export function AdminDashboard() {
   };
 
   const handleCreateNewFilmmaker = async () => {
-    if (!supabase) return;
-    
     setNewFilmmakerError('');
     setNewFilmmakerSuccess('');
 
@@ -200,61 +198,49 @@ export function AdminDashboard() {
       return;
     }
 
-    setCreatingFilmmaker(true);
-
     try {
-      // Get current session for authorization
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session');
-      }
-
-      // Call the Edge Function to create filmmaker
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-filmmaker`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: newFilmmakerEmail,
-          first_name: newFilmmakerFirstName,
-          last_name: newFilmmakerLastName,
-        }),
+      // Generate a temporary password
+      const tempPassword = 'TempPass123!';
+      
+      // Create the user account
+      const { data, error } = await supabase.auth.signUp({
+        email: newFilmmakerEmail,
+        password: tempPassword,
+        options: {
+          data: {
+            first_name: newFilmmakerFirstName,
+            last_name: newFilmmakerLastName,
+            role: 'filmmaker'
+          }
+        }
       });
 
-      const result = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create filmmaker');
+      if (data.user) {
+        setNewFilmmakerSuccess(`Filmmaker created successfully! Temporary password: ${tempPassword}`);
+        console.warn(`New filmmaker created: ${newFilmmakerEmail} with temporary password: ${tempPassword}`);
+        
+        // Clear form
+        setNewFilmmakerEmail('');
+        setNewFilmmakerFirstName('');
+        setNewFilmmakerLastName('');
+        
+        // Hide form after a delay
+        setTimeout(() => {
+          setShowNewFilmmakerForm(false);
+          setNewFilmmakerSuccess('');
+        }, 3000);
+        
+        // Refresh filmmakers list
+        await fetchDashboardData();
+        
+        // Select the newly created filmmaker
+        setTitleForm({...titleForm, filmmaker_id: data.user.id});
       }
-
-      // Success - filmmaker created
-      setNewFilmmakerSuccess(
-        `Filmmaker created successfully! Temporary password: ${result.temporary_password}`
-      );
-      console.warn(`New filmmaker created - Email: ${result.email}, Password: ${result.temporary_password}`);
-      
-      // Clear form
-      setNewFilmmakerEmail('');
-      setNewFilmmakerFirstName('');
-      setNewFilmmakerLastName('');
-      setShowNewFilmmakerForm(false);
-      
-      // Refresh filmmakers list
-      await fetchDashboardData();
-      
-      // Set the newly created filmmaker as selected
-      setTitleForm(prev => ({
-        ...prev,
-        filmmaker_id: result.user_id
-      }));
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating filmmaker:', error);
-      setNewFilmmakerError(error.message || 'Failed to create filmmaker');
-    } finally {
-      setCreatingFilmmaker(false);
+      setNewFilmmakerError(error.message || 'Error creating filmmaker');
     }
   };
 
@@ -686,8 +672,10 @@ export function AdminDashboard() {
                         type="button"
                         onClick={handleCreateNewFilmmaker}
                         size="sm"
+                        disabled={creatingFilmmaker}
                       >
-                        Create Filmmaker
+                        <Plus className="h-4 w-4 mr-2" />
+                        {creatingFilmmaker ? 'Creating...' : 'Create Filmmaker'}
                       </Button>
                       <Button
                         type="button"
