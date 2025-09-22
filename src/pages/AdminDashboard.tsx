@@ -59,6 +59,7 @@ export function AdminDashboard() {
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [currentRequest, setCurrentRequest] = useState<PaymentRequest | null>(null);
   const [modalAmountApproved, setModalAmountApproved] = useState('');
+  const [filmmakers, setFilmmakers] = useState<User[]>([]);
   const [modalPaymentMethod, setModalPaymentMethod] = useState('');
   const [modalPaymentDate, setModalPaymentDate] = useState('');
   const [modalAdminNotes, setModalAdminNotes] = useState('');
@@ -97,7 +98,25 @@ export function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchFilmmakers();
   }, []);
+
+  const fetchFilmmakers = async () => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'filmmaker')
+        .order('first_name', { ascending: true });
+
+      if (error) throw error;
+      setFilmmakers(data || []);
+    } catch (error) {
+      console.error('Error fetching filmmakers:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
