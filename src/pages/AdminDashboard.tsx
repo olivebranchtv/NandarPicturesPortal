@@ -117,9 +117,8 @@ export function AdminDashboard() {
     
     try {
       const { data: filmmakerData, error } = await supabase
-        .eq('role', 'filmmaker');
+        .from('users')
         .select('id, email, first_name, last_name, role')
-        .eq('role', 'filmmaker');
         .eq('role', 'filmmaker')
         .order('first_name', { ascending: true });
 
