@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, DollarSign, Film, TrendingUp, Plus, Check, X, Edit2, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -12,6 +12,19 @@ interface AdminStats {
   totalTitles: number;
   totalRevenue: number;
   pendingApprovals: number;
+}
+
+interface FinancialData {
+  month: string;
+  revenue: number;
+  expenses: number;
+  net: number;
+}
+
+interface FinancialSummary {
+  totalRevenue: number;
+  totalExpenses: number;
+  netIncome: number;
 }
 
 interface NewTitleForm {
@@ -62,6 +75,15 @@ export function AdminDashboard() {
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Financial performance state
+  const [financialData, setFinancialData] = useState<FinancialData[]>([]);
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
+    totalRevenue: 0,
+    totalExpenses: 0,
+    netIncome: 0,
+  });
+  const [selectedTitleForFinancials, setSelectedTitleForFinancials] = useState<string>('');
   
   // Form states
   const [showAddTitle, setShowAddTitle] = useState(false);
@@ -116,6 +138,7 @@ export function AdminDashboard() {
         fetchFilmmakers(),
         fetchPaymentRequests(),
         fetchStreamingPayments(),
+        fetchFinancialData(),
       ]);
       calculateStats();
     } catch (error) {
@@ -265,6 +288,87 @@ export function AdminDashboard() {
       setStreamingPayments([]);
     }
   };
+
+  const fetchFinancialData = async () => {
+    if (!supabase) return;
+    
+    try {
+      // Fetch streaming payments with content info
+      const { data: payments, error: paymentsError } = await supabase
+        .from('streaming_payments')
+        .select(`
+          *,
+          content:title_id (
+            id,
+            title_name,
+            expenses_total
+          )
+        `)
+        .order('payment_date', { ascending: true });
+
+      if (paymentsError) {
+        console.error('Error fetching financial data:', paymentsError);
+        return;
+      }
+
+      // Process data by month
+      const monthlyData: { [key: string]: { revenue: number; expenses: number } } = {};
+      let totalRevenue = 0;
+      let totalExpenses = 0;
+
+      payments?.forEach((payment: any) => {
+        const date = new Date(payment.payment_date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Filter by selected title if one is chosen
+        if (selectedTitleForFinancials && payment.title_id !== selectedTitleForFinancials) {
+          return;
+        }
+        
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { revenue: 0, expenses: 0 };
+        }
+        
+        const revenue = payment.gross_amount || 0;
+        const expenses = payment.content?.expenses_total || 0;
+        
+        monthlyData[monthKey].revenue += revenue;
+        monthlyData[monthKey].expenses += expenses;
+        
+        totalRevenue += revenue;
+        totalExpenses += expenses;
+      });
+
+      // Convert to array and sort by month
+      const chartData: FinancialData[] = Object.entries(monthlyData)
+        .map(([month, data]) => ({
+          month: new Date(month + '-01').toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short' 
+          }),
+          revenue: data.revenue,
+          expenses: data.expenses,
+          net: data.revenue - data.expenses,
+        }))
+        .sort((a, b) => new Date(a.month + ' 1').getTime() - new Date(b.month + ' 1').getTime());
+
+      setFinancialData(chartData);
+      setFinancialSummary({
+        totalRevenue,
+        totalExpenses,
+        netIncome: totalRevenue - totalExpenses,
+      });
+    } catch (error) {
+      console.error('Unexpected error fetching financial data:', error);
+    }
+  };
+
+  // Refetch financial data when title filter changes
+  useEffect(() => {
+    if (!loading) {
+      fetchFinancialData();
+    }
+  }, [selectedTitleForFinancials]);
 
   const calculateStats = () => {
     const totalFilmmakers = filmmakers.length;
@@ -633,6 +737,110 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Financial Performance Section */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Financial Performance
+                </h3>
+                <div className="flex items-center space-x-4">
+                  <select
+                    value={selectedTitleForFinancials}
+                    onChange={(e) => setSelectedTitleForFinancials(e.target.value)}
+                    className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Titles</option>
+                    {titles.map((title) => (
+                      <option key={title.id} value={title.id}>
+                        {title.title_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Financial Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-green-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    ${financialSummary.totalRevenue.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-red-600">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-900">
+                    ${financialSummary.totalExpenses.toLocaleString()}
+                  </p>
+                </div>
+                <div className={`p-4 rounded-lg ${
+                  financialSummary.netIncome >= 0 ? 'bg-blue-50' : 'bg-orange-50'
+                }`}>
+                  <p className={`text-sm font-medium ${
+                    financialSummary.netIncome >= 0 ? 'text-blue-600' : 'text-orange-600'
+                  }`}>
+                    Net Income
+                  </p>
+                  <p className={`text-2xl font-bold ${
+                    financialSummary.netIncome >= 0 ? 'text-blue-900' : 'text-orange-900'
+                  }`}>
+                    ${financialSummary.netIncome.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {financialData.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={financialData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="month" 
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value, name) => [
+                          `$${Number(value).toLocaleString()}`, 
+                          name === 'revenue' ? 'Revenue' : 
+                          name === 'expenses' ? 'Expenses' : 'Net Income'
+                        ]}
+                        labelFormatter={(label) => `Month: ${label}`}
+                      />
+                      <Bar dataKey="revenue" fill="#10B981" name="revenue" />
+                      <Bar dataKey="expenses" fill="#EF4444" name="expenses" />
+                      <Bar dataKey="net" fill="#3B82F6" name="net" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-500">
+                  <div className="text-center">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>No financial data available</p>
+                    <p className="text-sm">
+                      {selectedTitleForFinancials 
+                        ? 'No payments found for selected title' 
+                        : 'Add payments to see financial performance'
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Revenue Chart */}
         <Card>
           <CardHeader>
