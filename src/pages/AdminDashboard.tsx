@@ -131,22 +131,30 @@ export function AdminDashboard() {
     if (!supabase) return;
     
     try {
-      console.log('Fetching filmmakers...');
+      console.log('Fetching filmmakers from users table...');
       const { data: filmmakerData, error } = await supabase
         .from('users')
-        .select('id, email, first_name, last_name, role')
+        .select('id, email, first_name, last_name, role, created_at')
         .eq('role', 'filmmaker')
-        .order('first_name', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching filmmakers:', error);
+        console.error('Error fetching filmmakers from users table:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         return;
       }
       
-      console.log('Fetched filmmakers:', filmmakerData);
+      console.log('Successfully fetched filmmakers:', filmmakerData);
+      console.log('Number of filmmakers found:', filmmakerData?.length || 0);
       setFilmmakers(filmmakerData || []);
     } catch (error) {
-      console.error('Unexpected error fetching filmmakers:', error);
+      console.error('Unexpected error fetching filmmakers from users table:', error);
+      console.error('Error stack:', error.stack);
       setFilmmakers([]);
     }
   };
@@ -726,23 +734,32 @@ export function AdminDashboard() {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
-                    <option value="">Select a filmmaker</option>
+                    <option value="">
+                      {loading ? 'Loading filmmakers...' : 'Select a filmmaker'}
+                    </option>
                     {filmmakers.length > 0 ? (
                       filmmakers.map((filmmaker) => (
                         <option key={filmmaker.id} value={filmmaker.id}>
-                          {filmmaker.first_name && filmmaker.last_name
-                            ? `${filmmaker.first_name} ${filmmaker.last_name}`
+                          {filmmaker.first_name && filmmaker.last_name 
+                            ? `${filmmaker.first_name} ${filmmaker.last_name} (${filmmaker.email})`
                             : filmmaker.email
                           }
                         </option>
                       ))
                     ) : (
-                      <option value="" disabled>No filmmakers found</option>
+                      <option value="" disabled>
+                        {loading ? 'Loading...' : 'No filmmakers found'}
+                      </option>
                     )}
                   </select>
                   {filmmakers.length === 0 && (
                     <p className="text-sm text-gray-500 mt-1">
-                      No filmmakers found. Please create a filmmaker first.
+                      No filmmakers found in the users table. Please create a filmmaker first.
+                    </p>
+                  )}
+                  {filmmakers.length > 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Found {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''} in the database
                     </p>
                   )}
                 </div>
