@@ -130,8 +130,129 @@ export function AdminDashboard() {
   const fetchFilmmakers = async () => {
     if (!supabase) return;
     
-    console.log('Fetching filmmakers...');
-    const { data: filmmakerData, error } = await supabase
+    try {
+      console.log('Fetching filmmakers...');
+      const { data: filmmakerData, error } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name, role')
+        .eq('role', 'filmmaker')
+        .order('first_name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching filmmakers:', error);
+        return;
+      }
+      
+      console.log('Fetched filmmakers:', filmmakerData);
+      setFilmmakers(filmmakerData || []);
+    } catch (error) {
+      console.error('Unexpected error fetching filmmakers:', error);
+      setFilmmakers([]);
+    }
+  };
+
+  const calculateStats = () => {
+    const totalFilmmakers = filmmakers.length;
+    const totalTitles = titles.length;
+    const pendingApprovals = titles.filter(t => t.status === 'pending').length;
+    const totalRevenue = streamingPayments.reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
+    
+    setStats({
+      totalFilmmakers,
+      totalTitles,
+      totalRevenue,
+      pendingApprovals,
+    });
+  };
+
+  // Recalculate stats whenever data changes
+  useEffect(() => {
+    calculateStats();
+  }, [filmmakers, titles, streamingPayments]);
+
+  const fetchDashboardData = async () => {
+    try {
+      await Promise.all([
+        fetchTitles(),
+        fetchFilmmakers(),
+        fetchPaymentRequests(),
+        fetchStreamingPayments(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTitles = async () => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('content')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching titles:', error);
+        return;
+      }
+      
+      setTitles(data || []);
+    } catch (error) {
+      console.error('Unexpected error fetching titles:', error);
+      setTitles([]);
+    }
+  };
+
+  const fetchPaymentRequests = async () => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .select(`
+          *,
+          filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email)
+        `)
+        .order('requested_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching payment requests:', error);
+        return;
+      }
+      
+      setPaymentRequests(data || []);
+    } catch (error) {
+      console.error('Unexpected error fetching payment requests:', error);
+      setPaymentRequests([]);
+    }
+  };
+
+  const fetchStreamingPayments = async () => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('streaming_payments')
+        .select(`
+          *,
+          content!inner(title_name)
+        `)
+        .order('payment_date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching streaming payments:', error);
+        return;
+      }
+      
+      setStreamingPayments(data || []);
+    } catch (error) {
+      console.error('Unexpected error fetching streaming payments:', error);
+      setStreamingPayments([]);
+    }
+  };
       .from('users')
       .select('id, email, first_name, last_name, role')
       .eq('role', 'filmmaker')
