@@ -135,53 +135,33 @@ export function AdminDashboard() {
       console.log('Supabase client exists:', !!supabase);
       console.log('Current user profile:', profile);
      
-     // Check current user authentication
-     const { data: { user }, error: authError } = await supabase.auth.getUser();
-     console.log('Current authenticated user:', user);
-     console.log('Auth error:', authError);
-     
-     // Try to fetch current user's profile to verify admin access
-     const { data: currentProfile, error: profileError } = await supabase
-       .from('users')
-       .select('*')
-       .eq('id', user?.id)
-       .single();
-     console.log('Current user profile from DB:', currentProfile);
-     console.log('Profile fetch error:', profileError);
+      // Since we know the user is admin, let's try a more direct approach
+      console.log('Attempting to fetch all users with role filmmaker...');
       
       const { data: filmmakerData, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, email, first_name, last_name, role, created_at')
         .eq('role', 'filmmaker')
         .order('created_at', { ascending: false });
       
       console.log('Raw Supabase response:', { data: filmmakerData, error });
-      console.log('Error details:', error ? {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      } : 'No error');
 
-     // If no data but no error, try without RLS (using service role would be needed)
-     if (!filmmakerData && !error) {
-       console.log('No data returned but no error - possible RLS issue');
-       
-       // Try a simple count query to test basic access
-       const { count, error: countError } = await supabase
-         .from('users')
-         .select('*', { count: 'exact', head: true })
-         .eq('role', 'filmmaker');
-       console.log('Count query result:', { count, countError });
-     }
       if (error) {
-        console.error('=== SUPABASE ERROR ===');
-        console.error('Full error object:', error);
-        console.error('Error message:', error.message);
-        console.error('Error code:', error.code);
-        console.error('Error details:', error.details);
-        console.error('Error hint:', error.hint);
-        console.error('=== END SUPABASE ERROR ===');
+        console.error('Error fetching filmmakers:', error);
+        // Try alternative query without RLS restrictions
+        console.log('Trying alternative query...');
+        
+        const { data: allUsers, error: allUsersError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name, role, created_at');
+        
+        console.log('All users query result:', { data: allUsers, error: allUsersError });
+        
+        if (allUsers) {
+          const filmmakers = allUsers.filter(user => user.role === 'filmmaker');
+          console.log('Filtered filmmakers:', filmmakers);
+          setFilmmakers(filmmakers);
+        }
         return;
       }
       
@@ -205,7 +185,55 @@ export function AdminDashboard() {
       console.error('Error stack:', error.stack);
       console.error('Error name:', error.name);
       console.error('=== END UNEXPECTED ERROR ===');
-      setFilmmakers([]);
+      
+      // Try one more fallback approach
+      console.log('Trying fallback approach - fetch all users and filter client-side...');
+      try {
+        const { data: allUsers, error: fallbackError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name, role, created_at');
+        
+        if (!fallbackError && allUsers) {
+          const filmmakers = allUsers.filter(user => user.role === 'filmmaker');
+          console.log('Fallback - found filmmakers:', filmmakers);
+          setFilmmakers(filmmakers);
+        } else {
+          console.error('Fallback also failed:', fallbackError);
+          setFilmmakers([]);
+        }
+      } catch (fallbackError) {
+        console.error('Fallback approach failed:', fallbackError);
+        setFilmmakers([]);
+      }
+    }
+  };
+
+  const fetchPaymentRequests = async () => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .select(`
+          *,
+          filmmaker:filmmaker_id (
+            id,
+            email,
+            first_name,
+            last_name
+          )
+        `)
+        .order('requested_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching payment requests:', error);
+        return;
+      }
+      
+      setPaymentRequests(data || []);
+    } catch (error) {
+      console.error('Unexpected error fetching payment requests:', error);
+      setPaymentRequests([]);
     }
   };
 
