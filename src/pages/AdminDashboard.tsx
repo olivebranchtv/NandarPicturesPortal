@@ -99,6 +99,17 @@ export function AdminDashboard() {
   useEffect(() => {
     fetchDashboardData();
     fetchFilmmakers();
+    
+    // Also refresh filmmakers when component mounts
+    const refreshData = () => {
+      fetchDashboardData();
+      fetchFilmmakers();
+    };
+    
+    // Set up interval to refresh data every 30 seconds
+    const interval = setInterval(refreshData, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchFilmmakers = async () => {
