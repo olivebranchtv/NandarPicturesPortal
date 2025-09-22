@@ -62,6 +62,12 @@ export function AdminDashboard() {
   const [modalPaymentMethod, setModalPaymentMethod] = useState('');
   const [modalPaymentDate, setModalPaymentDate] = useState('');
   const [modalAdminNotes, setModalAdminNotes] = useState('');
+  const [showNewFilmmakerForm, setShowNewFilmmakerForm] = useState(false);
+  const [newFilmmakerEmail, setNewFilmmakerEmail] = useState('');
+  const [newFilmmakerFirstName, setNewFilmmakerFirstName] = useState('');
+  const [newFilmmakerLastName, setNewFilmmakerLastName] = useState('');
+  const [newFilmmakerError, setNewFilmmakerError] = useState('');
+  const [newFilmmakerSuccess, setNewFilmmakerSuccess] = useState('');
   const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
     title_id: '',
     platform: '',
@@ -179,6 +185,62 @@ export function AdminDashboard() {
     setModalPaymentMethod('');
     setModalPaymentDate('');
     setModalAdminNotes('');
+  };
+
+  const handleCreateNewFilmmaker = async () => {
+    setNewFilmmakerError('');
+    setNewFilmmakerSuccess('');
+
+    // Validate required fields
+    if (!newFilmmakerEmail || !newFilmmakerFirstName || !newFilmmakerLastName) {
+      setNewFilmmakerError('All fields are required');
+      return;
+    }
+
+    try {
+      // Generate a temporary password
+      const tempPassword = 'TempPass123!';
+      
+      // Create the user account
+      const { data, error } = await supabase.auth.signUp({
+        email: newFilmmakerEmail,
+        password: tempPassword,
+        options: {
+          data: {
+            first_name: newFilmmakerFirstName,
+            last_name: newFilmmakerLastName,
+            role: 'filmmaker'
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        setNewFilmmakerSuccess(`Filmmaker created successfully! Temporary password: ${tempPassword}`);
+        console.warn(`New filmmaker created: ${newFilmmakerEmail} with temporary password: ${tempPassword}`);
+        
+        // Clear form
+        setNewFilmmakerEmail('');
+        setNewFilmmakerFirstName('');
+        setNewFilmmakerLastName('');
+        
+        // Hide form after a delay
+        setTimeout(() => {
+          setShowNewFilmmakerForm(false);
+          setNewFilmmakerSuccess('');
+        }, 3000);
+        
+        // Refresh filmmakers list
+        await fetchDashboardData();
+        
+        // Select the newly created filmmaker
+        setTitleForm({...titleForm, filmmaker_id: data.user.id});
+      }
+    } catch (error) {
+      console.error('Error creating filmmaker:', error);
+      setNewFilmmakerError(error.message || 'Error creating filmmaker');
+    }
   };
 
   const handleUpdateRequestStatus = async (status: 'approved' | 'rejected' | 'paid') => {
@@ -301,6 +363,7 @@ export function AdminDashboard() {
 
   const handleEditTitle = (title: Content) => {
     setEditingTitle(title);
+    setShowNewFilmmakerForm(false);
     const distributionSettings = title.title_distribution_settings?.[0];
     setTitleForm({
       title_name: title.title_name,
@@ -480,6 +543,7 @@ export function AdminDashboard() {
                 onClick={() => {
                   setShowTitleForm(!showTitleForm);
                   setEditingTitle(null);
+                  setShowNewFilmmakerForm(false);
                   setTitleForm({
                     title_name: '',
                     content_type: 'movie',
@@ -532,11 +596,21 @@ export function AdminDashboard() {
                   </label>
                   <select
                     value={titleForm.filmmaker_id}
-                    onChange={(e) => setTitleForm({...titleForm, filmmaker_id: e.target.value})}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'create-new-filmmaker') {
+                        setShowNewFilmmakerForm(true);
+                        setTitleForm({...titleForm, filmmaker_id: ''});
+                      } else {
+                        setShowNewFilmmakerForm(false);
+                        setTitleForm({...titleForm, filmmaker_id: value});
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
                     <option value="">Select a filmmaker</option>
+                    <option value="create-new-filmmaker">+ Create New Filmmaker...</option>
                     {allFilmmakers.map(filmmaker => (
                       <option key={filmmaker.id} value={filmmaker.id}>
                         {filmmaker.first_name && filmmaker.last_name 
@@ -547,6 +621,78 @@ export function AdminDashboard() {
                     ))}
                   </select>
                 </div>
+                
+                {showNewFilmmakerForm && (
+                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <h4 className="font-medium text-gray-900 mb-3">Create New Filmmaker</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <Input
+                        label="First Name"
+                        value={newFilmmakerFirstName}
+                        onChange={(e) => setNewFilmmakerFirstName(e.target.value)}
+                        placeholder="Enter first name"
+                        required
+                      />
+                      
+                      <Input
+                        label="Last Name"
+                        value={newFilmmakerLastName}
+                        onChange={(e) => setNewFilmmakerLastName(e.target.value)}
+                        placeholder="Enter last name"
+                        required
+                      />
+                    </div>
+                    
+                    <Input
+                      type="email"
+                      label="Email"
+                      value={newFilmmakerEmail}
+                      onChange={(e) => setNewFilmmakerEmail(e.target.value)}
+                      placeholder="Enter email address"
+                      required
+                      className="mb-4"
+                    />
+
+                    {newFilmmakerError && (
+                      <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+                        <p className="text-sm text-red-600">{newFilmmakerError}</p>
+                      </div>
+                    )}
+
+                    {newFilmmakerSuccess && (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+                        <p className="text-sm text-green-600">{newFilmmakerSuccess}</p>
+                      </div>
+                    )}
+                    
+                    <div className="flex space-x-2">
+                      <Button
+                        type="button"
+                        onClick={handleCreateNewFilmmaker}
+                        size="sm"
+                      >
+                        Create Filmmaker
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setShowNewFilmmakerForm(false);
+                          setNewFilmmakerEmail('');
+                          setNewFilmmakerFirstName('');
+                          setNewFilmmakerLastName('');
+                          setNewFilmmakerError('');
+                          setNewFilmmakerSuccess('');
+                          setTitleForm({...titleForm, filmmaker_id: ''});
+                        }}
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -645,6 +791,12 @@ export function AdminDashboard() {
                     onClick={() => {
                       setShowTitleForm(false);
                       setEditingTitle(null);
+                      setShowNewFilmmakerForm(false);
+                      setNewFilmmakerEmail('');
+                      setNewFilmmakerFirstName('');
+                      setNewFilmmakerLastName('');
+                      setNewFilmmakerError('');
+                      setNewFilmmakerSuccess('');
                     }}
                   >
                     <X className="h-4 w-4 mr-2" />
