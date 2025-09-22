@@ -673,6 +673,71 @@ export function AdminDashboard() {
                       className="mb-4"
                     />
 
+                    {/* Historical Accounting Data Section */}
+                    <div className="col-span-2 border-t pt-6">
+                      <h4 className="text-lg font-medium text-gray-900 mb-4">
+                        Historical Accounting Data
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Enter historical financial data from your previous system for this title.
+                      </p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          label="Previous Gross Amount"
+                          value={titleForm.previous_gross_amount}
+                          onChange={(e) => setTitleForm({ ...titleForm, previous_gross_amount: e.target.value })}
+                          placeholder="0.00"
+                        />
+                        
+                        <Input
+                          type="number"
+                          step="0.01"
+                          label="Previous Expenses"
+                          value={titleForm.previous_expenses}
+                          onChange={(e) => setTitleForm({ ...titleForm, previous_expenses: e.target.value })}
+                          placeholder="0.00"
+                        />
+                        
+                        <Input
+                          type="number"
+                          step="0.01"
+                          label="Previous Distribution Fee"
+                          value={titleForm.previous_distribution_fee}
+                          onChange={(e) => setTitleForm({ ...titleForm, previous_distribution_fee: e.target.value })}
+                          placeholder="0.00"
+                        />
+                        
+                        <Input
+                          type="number"
+                          step="0.01"
+                          label="Previous Net Revenue"
+                          value={titleForm.previous_net_revenue}
+                          onChange={(e) => setTitleForm({ ...titleForm, previous_net_revenue: e.target.value })}
+                          placeholder="0.00"
+                        />
+                        
+                        <Input
+                          type="number"
+                          step="0.01"
+                          label="Previous Amount Paid to Filmmakers"
+                          value={titleForm.previous_amount_paid}
+                          onChange={(e) => setTitleForm({ ...titleForm, previous_amount_paid: e.target.value })}
+                          placeholder="0.00"
+                        />
+                        
+                        <Input
+                          type="number"
+                          step="0.01"
+                          label="Previous Balance Due"
+                          value={titleForm.previous_balance_due}
+                          onChange={(e) => setTitleForm({ ...titleForm, previous_balance_due: e.target.value })}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
                     {newFilmmakerError && (
                       <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
                         <p className="text-sm text-red-600">{newFilmmakerError}</p>

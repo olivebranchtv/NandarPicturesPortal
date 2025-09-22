@@ -69,6 +69,19 @@ export function FilmmakerDashboard() {
       if (paymentsError) throw paymentsError;
       setStreamingPayments(paymentsData || []);
 
+      // Fetch filmmaker's content with historical data for display
+      const { data: contentData, error: contentError } = await supabase
+        .from('content')
+        .select('*')
+        .eq('filmmaker_id', profile.id);
+
+      if (contentError) throw contentError;
+
+      // Calculate historical totals for display
+      const historicalTotals = contentData?.reduce((acc, content) => ({
+        historicalEarned: acc.historicalEarned + (content.previous_net_revenue || 0) + (content.previous_balance_due || 0),
+        historicalPaid: acc.historicalPaid + (content.previous_amount_paid || 0)
+      }), { historicalEarned: 0, historicalPaid: 0 }) || { historicalEarned: 0, historicalPaid: 0 };
       // Fetch payment requests to calculate available balance
       const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
@@ -81,8 +94,8 @@ export function FilmmakerDashboard() {
 
       setStats({
         totalTitles: titlesData?.length || 0,
-        totalEarned: balanceData?.total_earned || 0,
-        totalPaid: balanceData?.total_paid || 0,
+        totalEarned: (balanceData?.total_earned || 0),
+        totalPaid: (balanceData?.total_paid || 0),
         availableBalance: balanceData?.available_balance || 0,
       });
     } catch (error) {
