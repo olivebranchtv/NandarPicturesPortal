@@ -134,6 +134,20 @@ export function AdminDashboard() {
       console.log('=== FILMMAKER FETCH DEBUG START ===');
       console.log('Supabase client exists:', !!supabase);
       console.log('Current user profile:', profile);
+     
+     // Check current user authentication
+     const { data: { user }, error: authError } = await supabase.auth.getUser();
+     console.log('Current authenticated user:', user);
+     console.log('Auth error:', authError);
+     
+     // Try to fetch current user's profile to verify admin access
+     const { data: currentProfile, error: profileError } = await supabase
+       .from('users')
+       .select('*')
+       .eq('id', user?.id)
+       .single();
+     console.log('Current user profile from DB:', currentProfile);
+     console.log('Profile fetch error:', profileError);
       
       const { data: filmmakerData, error } = await supabase
         .from('users')
@@ -149,6 +163,17 @@ export function AdminDashboard() {
         hint: error.hint
       } : 'No error');
 
+     // If no data but no error, try without RLS (using service role would be needed)
+     if (!filmmakerData && !error) {
+       console.log('No data returned but no error - possible RLS issue');
+       
+       // Try a simple count query to test basic access
+       const { count, error: countError } = await supabase
+         .from('users')
+         .select('*', { count: 'exact', head: true })
+         .eq('role', 'filmmaker');
+       console.log('Count query result:', { count, countError });
+     }
       if (error) {
         console.error('=== SUPABASE ERROR ===');
         console.error('Full error object:', error);
