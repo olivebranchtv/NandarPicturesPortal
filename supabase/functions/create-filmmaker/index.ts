@@ -146,6 +146,43 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Check if user already exists
+    console.log('Checking if user already exists...')
+    const { data: existingUser, error: existingUserError } = await supabaseAdmin
+      .from('users')
+      .select('id, email, role')
+      .eq('email', email)
+      .single()
+
+    if (existingUserError && existingUserError.code !== 'PGRST116') {
+      console.error('Error checking existing user:', existingUserError)
+      return new Response(
+        JSON.stringify({ error: 'Error checking existing user' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (existingUser) {
+      console.log('User already exists:', existingUser)
+      return new Response(
+        JSON.stringify({ 
+          error: `User with email ${email} already exists with role: ${existingUser.role}`,
+          existing_user: {
+            id: existingUser.id,
+            email: existingUser.email,
+            role: existingUser.role
+          }
+        }),
+        { 
+          status: 409, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     // Generate a temporary password
     const tempPassword = 'TempPass123!'
     console.log('Generated temporary password')
