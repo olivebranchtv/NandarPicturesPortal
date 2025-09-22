@@ -117,7 +117,7 @@ export function AdminDashboard() {
     
     try {
       const { data: filmmakerData, error } = await supabase
-        .from('users')
+        .eq('role', 'filmmaker');
         .select('id, email, first_name, last_name, role')
         .eq('role', 'filmmaker');
         .eq('role', 'filmmaker')
