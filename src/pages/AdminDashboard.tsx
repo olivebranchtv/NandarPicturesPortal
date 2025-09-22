@@ -170,20 +170,6 @@ export function AdminDashboard() {
     calculateStats();
   }, [filmmakers, titles, streamingPayments]);
 
-  const fetchDashboardData = async () => {
-    try {
-      await Promise.all([
-        fetchTitles(),
-        fetchFilmmakers(),
-        fetchPaymentRequests(),
-        fetchStreamingPayments(),
-      ]);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchTitles = async () => {
     if (!supabase) return;
