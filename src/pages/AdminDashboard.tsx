@@ -787,11 +787,11 @@ export function AdminDashboard() {
       {/* Add Title Modal */}
       {showAddTitle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
+          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-lg shadow-lg flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg font-semibold">Add New Title</h3>
-            </CardHeader>
-            <CardContent>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               <form onSubmit={handleAddTitle} className="space-y-4">
                 <Input
                   label="Title Name"
@@ -964,21 +964,29 @@ export function AdminDashboard() {
                     For example, with 20%, if we receive $100, the filmmaker gets $80.
                   </p>
                 </div>
-
-                <div className="flex space-x-2">
-                  <Button type="submit" className="flex-1">Add Title</Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setShowAddTitle(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
               </form>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex-shrink-0">
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={handleAddTitle} 
+                  className="flex-1"
+                  disabled={!newTitle.title_name || !newTitle.filmmaker_id}
+                >
+                  Add Title
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowAddTitle(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 
