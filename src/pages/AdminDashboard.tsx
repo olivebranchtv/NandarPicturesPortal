@@ -236,49 +236,6 @@ export function AdminDashboard() {
       setFilmmakers([]);
     }
   };
-        .from('users')
-        .select('id, email, first_name, last_name, role, created_at')
-        .order('created_at', { ascending: false });
-      
-      console.log('📊 Raw users data from database:', allUsers);
-      console.log('❌ Database error (if any):', error);
-      
-      if (error) {
-        console.error('Failed to fetch users:', error);
-        setFilmmakers([]);
-        return;
-      }
-      
-      if (!allUsers || !Array.isArray(allUsers)) {
-        console.error('Invalid data format received:', allUsers);
-        setFilmmakers([]);
-        return;
-      }
-      
-      // Filter users where role = 'filmmaker' in JavaScript
-      const filmmakers = allUsers.filter(user => user.role === 'filmmaker');
-      
-      console.log('🎭 Filtered filmmakers (role = "filmmaker"):', filmmakers);
-      console.log('📈 Number of filmmakers found:', filmmakers.length);
-      
-      if (filmmakers.length > 0) {
-        console.log('👥 Filmmaker details:');
-        filmmakers.forEach((filmmaker, index) => {
-          console.log(`  ${index + 1}. ${filmmaker.first_name} ${filmmaker.last_name} (${filmmaker.email}) - ID: ${filmmaker.id}`);
-        });
-      } else {
-        console.log('⚠️ No filmmakers found in the users table');
-      }
-      
-      // Set the filmmakers in state to populate dropdown
-      setFilmmakers(filmmakers);
-      console.log('✅ Filmmakers state updated successfully');
-      
-    } catch (error) {
-      console.error('💥 Unexpected error fetching filmmakers:', error);
-      setFilmmakers([]);
-    }
-  };
 
   const fetchPaymentRequests = async () => {
     if (!supabase) return;
