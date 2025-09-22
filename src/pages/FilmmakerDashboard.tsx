@@ -79,9 +79,10 @@ export function FilmmakerDashboard() {
 
       // Calculate historical totals for display
       const historicalTotals = contentData?.reduce((acc, content) => ({
-        historicalEarned: acc.historicalEarned + (content.previous_net_revenue || 0) + (content.previous_balance_due || 0),
+        historicalEarned: acc.historicalEarned + (content.previous_gross_amount || 0),
         historicalPaid: acc.historicalPaid + (content.previous_amount_paid || 0)
       }), { historicalEarned: 0, historicalPaid: 0 }) || { historicalEarned: 0, historicalPaid: 0 };
+
       // Fetch payment requests to calculate available balance
       const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
@@ -92,10 +93,18 @@ export function FilmmakerDashboard() {
 
       setPaymentRequests(requestsData || []);
 
+      // Calculate total earned including historical data
+      const currentEarned = balanceData?.total_earned || 0;
+      const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned;
+      
+      // Calculate total paid including historical data  
+      const currentPaid = balanceData?.total_paid || 0;
+      const totalPaidWithHistory = currentPaid + historicalTotals.historicalPaid;
+
       setStats({
         totalTitles: titlesData?.length || 0,
-        totalEarned: (balanceData?.total_earned || 0),
-        totalPaid: (balanceData?.total_paid || 0),
+        totalEarned: totalEarnedWithHistory,
+        totalPaid: totalPaidWithHistory,
         availableBalance: balanceData?.available_balance || 0,
       });
     } catch (error) {

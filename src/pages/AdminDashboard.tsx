@@ -293,8 +293,19 @@ export function AdminDashboard() {
     if (!supabase) return;
     
     try {
+      // Fetch all content with historical data
+      const { data: allContent, error: contentError } = await supabase
+        .from('content')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (contentError) {
+        console.error('Error fetching content for financial data:', contentError);
+        return;
+      }
+
       // Fetch streaming payments with content info
-      const { data: payments, error: paymentsError } = await supabase
+      const { data: streamingPayments, error: paymentsError } = await supabase
         .from('streaming_payments')
         .select(`
           *,
@@ -307,7 +318,7 @@ export function AdminDashboard() {
         .order('payment_date', { ascending: true });
 
       if (paymentsError) {
-        console.error('Error fetching financial data:', paymentsError);
+        console.error('Error fetching streaming payments:', paymentsError);
         return;
       }
 
@@ -316,27 +327,64 @@ export function AdminDashboard() {
       let totalRevenue = 0;
       let totalExpenses = 0;
 
-      payments?.forEach((payment: any) => {
-        const date = new Date(payment.payment_date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
+      // Process historical data from content table
+      allContent?.forEach((content: any) => {
+        // Filter by selected title if one is chosen
+        if (selectedTitleForFinancials && content.id !== selectedTitleForFinancials) {
+          return;
+        }
+
+        // Add historical data if it exists
+        if (content.previous_gross_amount > 0 || content.previous_expenses > 0) {
+          // Use creation date for historical data or a default historical month
+          const date = new Date(content.created_at);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = { revenue: 0, expenses: 0 };
+          }
+          
+          const historicalRevenue = content.previous_gross_amount || 0;
+          const historicalExpenses = content.previous_expenses || 0;
+          
+          monthlyData[monthKey].revenue += historicalRevenue;
+          monthlyData[monthKey].expenses += historicalExpenses;
+          
+          totalRevenue += historicalRevenue;
+          totalExpenses += historicalExpenses;
+        }
+
+        // Add current expenses from content table
+        if (content.expenses_total > 0) {
+          const date = new Date(content.updated_at || content.created_at);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = { revenue: 0, expenses: 0 };
+          }
+          
+          monthlyData[monthKey].expenses += content.expenses_total;
+          totalExpenses += content.expenses_total;
+        }
+      });
+
+      // Process streaming payments
+      streamingPayments?.forEach((payment: any) => {
         // Filter by selected title if one is chosen
         if (selectedTitleForFinancials && payment.title_id !== selectedTitleForFinancials) {
           return;
         }
+
+        const date = new Date(payment.payment_date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         
         if (!monthlyData[monthKey]) {
           monthlyData[monthKey] = { revenue: 0, expenses: 0 };
         }
         
         const revenue = payment.gross_amount || 0;
-        const expenses = payment.content?.expenses_total || 0;
-        
         monthlyData[monthKey].revenue += revenue;
-        monthlyData[monthKey].expenses += expenses;
-        
         totalRevenue += revenue;
-        totalExpenses += expenses;
       });
 
       // Convert to array and sort by month
