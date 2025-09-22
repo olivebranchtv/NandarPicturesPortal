@@ -264,7 +264,13 @@ export function AdminDashboard() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to create filmmaker');
+        if (response.status === 409) {
+          // User already exists
+          alert(`User already exists: ${result.error}\n\nExisting user details:\nEmail: ${result.existing_user?.email}\nRole: ${result.existing_user?.role}`);
+        } else {
+          throw new Error(result.error || 'Failed to create filmmaker');
+        }
+        return;
       }
 
       // Reset form and refresh data
