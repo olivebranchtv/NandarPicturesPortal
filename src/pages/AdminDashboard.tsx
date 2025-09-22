@@ -88,43 +88,27 @@ export function AdminDashboard() {
     notes: '',
   });
 
-  useEffect(() => {
-    fetchDashboardData();
-    // Set up auto-refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      await Promise.all([
-        fetchTitles(),
-        fetchFilmmakers(),
-        fetchPaymentRequests(),
-        fetchStreamingPayments(),
-      ]);
-      calculateStats();
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchTitles = async () => {
     if (!supabase) return;
     
-    const { data, error } = await supabase
-      .from('content')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      console.log('Fetching titles...');
+      const { data, error } = await supabase
+        .from('content')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching titles:', error);
-      return;
+      if (error) {
+        console.error('Error fetching titles:', error);
+        return;
+      }
+      
+      console.log('Fetched titles:', data);
+      setTitles(data || []);
+    } catch (error) {
+      console.error('Unexpected error fetching titles:', error);
+      setTitles([]);
     }
-    
-    setTitles(data || []);
   };
 
   const fetchFilmmakers = async () => {
@@ -151,51 +135,11 @@ export function AdminDashboard() {
     }
   };
 
-  const calculateStats = () => {
-    const totalFilmmakers = filmmakers.length;
-    const totalTitles = titles.length;
-    const pendingApprovals = titles.filter(t => t.status === 'pending').length;
-    const totalRevenue = streamingPayments.reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
-    
-    setStats({
-      totalFilmmakers,
-      totalTitles,
-      totalRevenue,
-      pendingApprovals,
-    });
-  };
-
-  // Recalculate stats whenever data changes
-  useEffect(() => {
-    calculateStats();
-  }, [filmmakers, titles, streamingPayments]);
-
-
-  const fetchTitles = async () => {
-    if (!supabase) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('content')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching titles:', error);
-        return;
-      }
-      
-      setTitles(data || []);
-    } catch (error) {
-      console.error('Unexpected error fetching titles:', error);
-      setTitles([]);
-    }
-  };
-
   const fetchPaymentRequests = async () => {
     if (!supabase) return;
     
     try {
+      console.log('Fetching payment requests...');
       const { data, error } = await supabase
         .from('payment_requests')
         .select(`
@@ -209,6 +153,7 @@ export function AdminDashboard() {
         return;
       }
       
+      console.log('Fetched payment requests:', data);
       setPaymentRequests(data || []);
     } catch (error) {
       console.error('Unexpected error fetching payment requests:', error);
@@ -220,6 +165,7 @@ export function AdminDashboard() {
     if (!supabase) return;
     
     try {
+      console.log('Fetching streaming payments...');
       const { data, error } = await supabase
         .from('streaming_payments')
         .select(`
@@ -233,62 +179,29 @@ export function AdminDashboard() {
         return;
       }
       
+      console.log('Fetched streaming payments:', data);
       setStreamingPayments(data || []);
     } catch (error) {
       console.error('Unexpected error fetching streaming payments:', error);
       setStreamingPayments([]);
     }
   };
-      .from('users')
-      .select('id, email, first_name, last_name, role')
-      .eq('role', 'filmmaker')
-      .order('first_name', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching filmmakers:', error);
-      return;
+  const fetchDashboardData = async () => {
+    try {
+      console.log('Fetching all dashboard data...');
+      await Promise.all([
+        fetchTitles(),
+        fetchFilmmakers(),
+        fetchPaymentRequests(),
+        fetchStreamingPayments(),
+      ]);
+      console.log('All dashboard data fetched successfully');
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    console.log('Fetched filmmakers:', filmmakerData);
-    setFilmmakers(filmmakerData || []);
-  };
-
-  const fetchPaymentRequests = async () => {
-    if (!supabase) return;
-    
-    const { data, error } = await supabase
-      .from('payment_requests')
-      .select(`
-        *,
-        filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email)
-      `)
-      .order('requested_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching payment requests:', error);
-      return;
-    }
-    
-    setPaymentRequests(data || []);
-  };
-
-  const fetchStreamingPayments = async () => {
-    if (!supabase) return;
-    
-    const { data, error } = await supabase
-      .from('streaming_payments')
-      .select(`
-        *,
-        content!inner(title_name)
-      `)
-      .order('payment_date', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching streaming payments:', error);
-      return;
-    }
-    
-    setStreamingPayments(data || []);
   };
 
   const calculateStats = () => {
@@ -297,6 +210,13 @@ export function AdminDashboard() {
     const pendingApprovals = titles.filter(t => t.status === 'pending').length;
     const totalRevenue = streamingPayments.reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
     
+    console.log('Calculating stats:', {
+      totalFilmmakers,
+      totalTitles,
+      pendingApprovals,
+      totalRevenue
+    });
+    
     setStats({
       totalFilmmakers,
       totalTitles,
@@ -304,6 +224,18 @@ export function AdminDashboard() {
       pendingApprovals,
     });
   };
+
+  useEffect(() => {
+    fetchDashboardData();
+    // Set up auto-refresh every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Recalculate stats whenever data changes
+  useEffect(() => {
+    calculateStats();
+  }, [filmmakers, titles, streamingPayments]);
 
   const handleAddTitle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -808,13 +740,13 @@ export function AdminDashboard() {
                       filmmakers.map((filmmaker) => (
                         <option key={filmmaker.id} value={filmmaker.id}>
                           {filmmaker.first_name && filmmaker.last_name
-                            ? `${filmmaker.first_name} ${filmmaker.last_name}`
+                            ? `${filmmaker.first_name} ${filmmaker.last_name} (${filmmaker.email})`
                             : filmmaker.email
                           }
                         </option>
                       ))
                     ) : (
-                      <option value="" disabled>No filmmakers found</option>
+                      <option value="" disabled>Loading filmmakers...</option>
                     )}
                   </select>
                   {filmmakers.length === 0 && (
