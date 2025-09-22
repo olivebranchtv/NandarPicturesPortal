@@ -362,7 +362,7 @@ export function AdminDashboard() {
         previous_distribution_fee: '',
         previous_net_revenue: '',
         previous_amount_paid: '',
-        previous_balance_due: ''
+        previous_balance_due: '',
         previous_gross_amount: title.previous_gross_amount?.toString() || '0',
         previous_expenses: title.previous_expenses?.toString() || '0',
         previous_distribution_fee: title.previous_distribution_fee?.toString() || '0',
