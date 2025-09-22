@@ -17,7 +17,7 @@ export interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  role: 'admin' | 'filmmaker';
+  role: 'admin' | 'filmmaker' | 'partner';
   address?: string;
   city?: string;
   state?: string;
@@ -28,22 +28,34 @@ export interface User {
   updated_at: string;
 }
 
-export interface Title {
+export interface Content {
   id: string;
   title_name: string;
+  content_type: 'movie' | 'series' | 'episode';
+  owner_id?: string;
+  owner_email?: string;
   filmmaker_id: string;
+  status: 'pending' | 'approved' | 'rejected';
   revenue_total: number;
   distribution_fee: number;
   expenses_total: number;
   net_revenue: number;
+  description?: string;
+  genre?: string;
+  release_date?: string;
+  duration_minutes?: number;
+  rating?: string;
   created_at: string;
   updated_at: string;
 }
 
+// Keep Title interface for backward compatibility
+export interface Title extends Content {}
+
 export interface PaymentRequest {
   id: string;
   filmmaker_id: string;
-  title_id: string;
+  content_id?: string;
   amount_requested: number;
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   admin_notes?: string;
@@ -52,4 +64,3 @@ export interface PaymentRequest {
   date_paid?: string;
   requested_at: string;
   updated_at: string;
-}
