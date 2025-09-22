@@ -259,6 +259,8 @@ export function AdminDashboard() {
         
         // Refresh filmmakers list
         await fetchDashboardData();
+        // Refresh filmmakers list
+        fetchFilmmakers();
         
         // Select the newly created filmmaker
         setTitleForm({...titleForm, filmmaker_id: data.user.id});
