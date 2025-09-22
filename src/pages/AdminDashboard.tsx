@@ -244,33 +244,73 @@ export function AdminDashboard() {
     if (!supabase) return;
 
     try {
-      // Call the edge function to create filmmaker
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      // Check if user already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id, email, role, first_name, last_name')
+        .eq('email', newFilmmaker.email)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-filmmaker`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: newFilmmaker.email,
-          first_name: newFilmmaker.first_name,
-          last_name: newFilmmaker.last_name,
-        }),
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw new Error('Error checking existing user');
+      }
+
+      if (existingUser) {
+        alert(`User already exists!\n\nEmail: ${existingUser.email}\nName: ${existingUser.first_name || ''} ${existingUser.last_name || ''}\nRole: ${existingUser.role}\n\nYou cannot create a duplicate user.`);
+        return;
+      }
+
+      // Generate a temporary password
+      const tempPassword = 'TempPass123!';
+
+      // Create the auth user first
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newFilmmaker.email,
+        password: tempPassword,
+        options: {
+          data: {
+            first_name: newFilmmaker.first_name,
+            last_name: newFilmmaker.last_name,
+            role: 'filmmaker'
+          }
+        }
       });
 
-      const result = await response.json();
+      if (authError) {
+        throw new Error(`Failed to create auth user: ${authError.message}`);
+      }
 
-      if (!response.ok) {
-        if (response.status === 409) {
-          // User already exists
-          alert(`User already exists: ${result.error}\n\nExisting user details:\nEmail: ${result.existing_user?.email}\nRole: ${result.existing_user?.role}`);
-        } else {
-          throw new Error(result.error || 'Failed to create filmmaker');
+      if (!authData.user) {
+        throw new Error('No user returned from auth creation');
+      }
+
+      // The user profile should be automatically created by the trigger
+      // Wait a moment for the trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify the user was created in the users table
+      const { data: createdUser, error: verifyError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('User profile not found after creation:', verifyError);
+        // Try to create the profile manually
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            email: newFilmmaker.email,
+            first_name: newFilmmaker.first_name,
+            last_name: newFilmmaker.last_name,
+            role: 'filmmaker'
+          });
+
+        if (insertError) {
+          throw new Error(`Failed to create user profile: ${insertError.message}`);
         }
-        return;
       }
 
       // Reset form and refresh data
@@ -281,7 +321,7 @@ export function AdminDashboard() {
       });
       setShowAddFilmmaker(false);
       fetchDashboardData();
-      alert(`Filmmaker created successfully! Temporary password: ${result.temporary_password}`);
+      alert(`Filmmaker created successfully!\n\nEmail: ${newFilmmaker.email}\nTemporary password: ${tempPassword}\n\nPlease share these credentials with the filmmaker.`);
     } catch (error) {
       console.error('Error adding filmmaker:', error);
       alert(`Error adding filmmaker: ${error.message}`);
