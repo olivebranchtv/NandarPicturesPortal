@@ -116,14 +116,15 @@ export function AdminDashboard() {
     if (!supabase) return;
     
     try {
-      const { data, error } = await supabase
+      const { data: filmmakerData, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, email, first_name, last_name, role')
+        .eq('role', 'filmmaker');
         .eq('role', 'filmmaker')
         .order('first_name', { ascending: true });
 
-      if (error) throw error;
-      setFilmmakers(data || []);
+      console.log('Fetched filmmakers:', filmmakerData);
+      setFilmmakers(filmmakerData || []);
     } catch (error) {
       console.error('Error fetching filmmakers:', error);
     }
