@@ -302,6 +302,12 @@ export function AdminDashboard() {
     }
   };
 
+  const handleOpenAddTitle = () => {
+    console.log('Opening Add Title modal, fetching filmmakers...');
+    setShowAddTitle(true);
+    fetchFilmmakers(); // Fetch filmmakers when modal opens
+  };
+
   const handleAddFilmmaker = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
@@ -523,7 +529,7 @@ export function AdminDashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <div className="flex space-x-2">
-          <Button onClick={() => setShowAddTitle(true)}>
+          <Button onClick={handleOpenAddTitle}>
             <Plus className="h-4 w-4 mr-2" />
             Add Title
           </Button>
