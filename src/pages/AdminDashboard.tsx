@@ -159,29 +159,6 @@ export function AdminDashboard() {
           *,
           filmmaker:filmmaker_id (
             id,
-            email,
-            first_name,
-            last_name
-          ),
-          content:content_id (
-            id,
-            title_name
-          )
-        `)
-        .order('requested_at', { ascending: false });
-  };
-      if (error) {
-        console.error('Error fetching payment requests:', error);
-        return;
-      }
-      
-      setPaymentRequests(data || []);
-    } catch (error) {
-      console.error('Unexpected error fetching payment requests:', error);
-      setPaymentRequests([]);
-    }
-  };
-
   const calculateStats = () => {
     const totalFilmmakers = filmmakers.length;
     const totalTitles = titles.length;
