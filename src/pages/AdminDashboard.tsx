@@ -23,6 +23,12 @@ interface NewTitleForm {
   release_date: string;
   duration_minutes: string;
   rating: string;
+  previous_gross_amount: string;
+  previous_expenses: string;
+  previous_distribution_fee: string;
+  previous_net_revenue: string;
+  previous_amount_paid: string;
+  previous_balance_due: string;
 }
 
 interface NewFilmmakerForm {
@@ -70,6 +76,12 @@ export function AdminDashboard() {
     release_date: '',
     duration_minutes: '',
     rating: '',
+    previous_gross_amount: '',
+    previous_expenses: '',
+    previous_distribution_fee: '',
+    previous_net_revenue: '',
+    previous_amount_paid: '',
+    previous_balance_due: '',
   });
   
   const [newFilmmaker, setNewFilmmaker] = useState<NewFilmmakerForm>({
@@ -290,6 +302,12 @@ export function AdminDashboard() {
           duration_minutes: newTitle.duration_minutes ? parseInt(newTitle.duration_minutes) : null,
           rating: newTitle.rating || null,
           status: 'pending',
+          previous_gross_amount: newTitle.previous_gross_amount ? parseFloat(newTitle.previous_gross_amount) : 0,
+          previous_expenses: newTitle.previous_expenses ? parseFloat(newTitle.previous_expenses) : 0,
+          previous_distribution_fee: newTitle.previous_distribution_fee ? parseFloat(newTitle.previous_distribution_fee) : 0,
+          previous_net_revenue: newTitle.previous_net_revenue ? parseFloat(newTitle.previous_net_revenue) : 0,
+          previous_amount_paid: newTitle.previous_amount_paid ? parseFloat(newTitle.previous_amount_paid) : 0,
+          previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
         });
 
       if (error) throw error;
@@ -304,6 +322,12 @@ export function AdminDashboard() {
         release_date: '',
         duration_minutes: '',
         rating: '',
+        previous_gross_amount: '',
+        previous_expenses: '',
+        previous_distribution_fee: '',
+        previous_net_revenue: '',
+        previous_amount_paid: '',
+        previous_balance_due: '',
       });
       setShowAddTitle(false);
       fetchDashboardData();
@@ -838,6 +862,65 @@ export function AdminDashboard() {
                   value={newTitle.rating}
                   onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
                 />
+
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">Historical Accounting Data</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Previous Gross Amount"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_gross_amount}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_gross_amount: e.target.value })}
+                      placeholder="0.00"
+                    />
+
+                    <Input
+                      label="Previous Expenses"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_expenses}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_expenses: e.target.value })}
+                      placeholder="0.00"
+                    />
+
+                    <Input
+                      label="Previous Distribution Fee"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_distribution_fee}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_distribution_fee: e.target.value })}
+                      placeholder="0.00"
+                    />
+
+                    <Input
+                      label="Previous Net Revenue"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_net_revenue}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_net_revenue: e.target.value })}
+                      placeholder="0.00"
+                    />
+
+                    <Input
+                      label="Previous Amount Paid"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_amount_paid}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_amount_paid: e.target.value })}
+                      placeholder="0.00"
+                    />
+
+                    <Input
+                      label="Previous Balance Due"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_balance_due}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_balance_due: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
 
                 <div className="flex space-x-2">
                   <Button type="submit" className="flex-1">Add Title</Button>
