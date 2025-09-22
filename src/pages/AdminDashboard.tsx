@@ -368,7 +368,7 @@ export function AdminDashboard() {
         previous_distribution_fee: title.previous_distribution_fee?.toString() || '0',
         previous_net_revenue: title.previous_net_revenue?.toString() || '0',
         previous_amount_paid: title.previous_amount_paid?.toString() || '0',
-        previous_balance_due: title.previous_balance_due?.toString() || '0'
+        previous_balance_due: title.previous_balance_due?.toString() || '0',
         company_percentage: '50'
       });
       setShowTitleForm(false);
