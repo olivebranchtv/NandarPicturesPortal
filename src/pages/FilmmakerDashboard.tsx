@@ -67,7 +67,31 @@ export function FilmmakerDashboard() {
         .order('payment_date', { ascending: false });
 
       if (paymentsError) throw paymentsError;
-      setStreamingPayments(paymentsData || []);
+      
+      // Process historical data from content table
+      const historicalPayments = contentData?.filter(content => 
+        content.previous_gross_amount > 0 || content.previous_expenses > 0
+      ).map(content => ({
+        id: `historical-${content.id}`,
+        title_id: content.id,
+        platform: 'Historical Data',
+        outlet: null,
+        payment_date: content.created_at.split('T')[0], // Use creation date for historical
+        gross_amount: content.previous_gross_amount || 0,
+        net_amount: (content.previous_gross_amount || 0) - (content.previous_expenses || 0),
+        distribution_percentage: 50, // Default percentage
+        notes: 'Historical revenue data',
+        created_at: content.created_at,
+        updated_at: content.updated_at,
+        content: {
+          title_name: content.title_name,
+          filmmaker_id: content.filmmaker_id
+        }
+      })) || [];
+
+      // Combine streaming payments with historical data
+      const allPayments = [...(paymentsData || []), ...historicalPayments];
+      setStreamingPayments(allPayments);
 
       // Fetch filmmaker's content with historical data for display
       const { data: contentData, error: contentError } = await supabase
@@ -161,11 +185,17 @@ export function FilmmakerDashboard() {
     );
   }
 
-  const chartData = streamingPayments.slice(0, 5).map(payment => ({
-    title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
-    gross: payment.gross_amount || 0,
-    net: payment.net_amount || 0,
-  }));
+  // Create chart data with both streaming payments and historical data
+  const chartData = streamingPayments
+    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+    .slice(0, 8) // Show more entries to include historical data
+    .map(payment => ({
+      title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
+      gross: payment.gross_amount || 0,
+      net: payment.net_amount || 0,
+      date: payment.payment_date,
+      platform: payment.platform
+    }));
 
   return (
     <div className="space-y-6">
@@ -210,7 +240,7 @@ export function FilmmakerDashboard() {
           <CardHeader>
             <h3 className="text-lg font-semibold flex items-center">
               <TrendingUp className="h-5 w-5 mr-2" />
-              Recent Payments
+              Payment History & Revenue
             </h3>
           </CardHeader>
           <CardContent>
@@ -220,7 +250,10 @@ export function FilmmakerDashboard() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="title" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, '']} />
+                  <Tooltip 
+                    formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name === 'gross' ? 'Gross Revenue' : 'Your Share']}
+                    labelFormatter={(label) => `Title: ${label}`}
+                  />
                   <Bar dataKey="gross" fill="#3B82F6" name="Gross Payment" />
                   <Bar dataKey="net" fill="#10B981" name="Your Share" />
                 </BarChart>
@@ -229,8 +262,8 @@ export function FilmmakerDashboard() {
               <div className="flex items-center justify-center h-64 text-gray-500">
                 <div className="text-center">
                   <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No payments received yet</p>
-                  <p className="text-sm">Payments will appear here once received</p>
+                  <p>No revenue data available</p>
+                  <p className="text-sm">Revenue and payments will appear here</p>
                 </div>
               </div>
             )}
@@ -274,7 +307,7 @@ export function FilmmakerDashboard() {
       {/* Streaming Payments Table */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Payment History</h3>
+          <h3 className="text-lg font-semibold">Revenue & Payment History</h3>
         </CardHeader>
         <CardContent>
           {streamingPayments.length > 0 ? (
@@ -289,10 +322,10 @@ export function FilmmakerDashboard() {
                       Platform
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Payment Date
+                      Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Gross Amount
+                      Gross Revenue
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Your Share
@@ -306,7 +339,13 @@ export function FilmmakerDashboard() {
                         {payment.content.title_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {payment.platform}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          payment.platform === 'Historical Data' 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {payment.platform}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(payment.payment_date).toLocaleDateString()}
@@ -325,9 +364,9 @@ export function FilmmakerDashboard() {
           ) : (
             <div className="text-center py-12">
               <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No payments yet</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No revenue data yet</h3>
               <p className="text-gray-500">
-                Payment history will appear here once payments are received
+                Revenue and payment history will appear here
               </p>
             </div>
           )}
