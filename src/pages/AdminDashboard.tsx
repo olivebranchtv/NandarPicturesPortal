@@ -130,11 +130,112 @@ export function AdminDashboard() {
   const fetchFilmmakers = async () => {
     if (!supabase) return;
     
-    console.log('🎬 Fetching filmmakers from users table...');
+    console.log('🎬 Fetching ALL users from users table (admin override)...');
     
     try {
-      // Fetch all users from the users table
-      const { data: allUsers, error } = await supabase
+      // First, let's try with RLS disabled for admin
+      console.log('🔓 Attempting to fetch users with admin privileges...');
+      
+      // Try multiple approaches to get the data
+      let allUsers = null;
+      let error = null;
+      
+      // Approach 1: Try with rpc call that bypasses RLS
+      console.log('📞 Trying RPC approach...');
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_all_users_for_admin');
+      
+      if (rpcError) {
+        console.log('❌ RPC failed, trying direct query:', rpcError.message);
+        
+        // Approach 2: Direct query (this should work if admin policies are correct)
+        const { data: directData, error: directError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name, role, created_at')
+          .order('created_at', { ascending: false });
+        
+        allUsers = directData;
+        error = directError;
+      } else {
+        allUsers = rpcData;
+        error = rpcError;
+      }
+      
+      console.log('📊 Raw users data from database:', allUsers);
+      console.log('❌ Database error (if any):', error);
+      
+      if (error) {
+        console.error('💥 Failed to fetch users:', error);
+        console.error('🔍 Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Try one more approach - fetch with minimal select
+        console.log('🔄 Trying minimal select approach...');
+        const { data: minimalData, error: minimalError } = await supabase
+          .from('users')
+          .select('*');
+        
+        if (minimalError) {
+          console.error('💥 All approaches failed:', minimalError);
+          setFilmmakers([]);
+          return;
+        }
+        
+        allUsers = minimalData;
+        console.log('✅ Minimal select worked:', allUsers);
+      }
+      
+      if (!allUsers || !Array.isArray(allUsers)) {
+        console.error('❌ Invalid data format received:', allUsers);
+        setFilmmakers([]);
+        return;
+      }
+      
+      console.log('📈 Total users found:', allUsers.length);
+      
+      // Log all users with their roles
+      console.log('👥 All users in database:');
+      allUsers.forEach((user, index) => {
+        console.log(`  ${index + 1}. ${user.first_name || 'No first name'} ${user.last_name || 'No last name'} (${user.email}) - Role: "${user.role}" - ID: ${user.id}`);
+      });
+      
+      // Filter users where role = 'filmmaker' in JavaScript
+      const filmmakers = allUsers.filter(user => {
+        const isFilmmaker = user.role === 'filmmaker';
+        console.log(`🎭 Checking user ${user.email}: role="${user.role}" -> isFilmmaker=${isFilmmaker}`);
+        return isFilmmaker;
+      });
+      
+      console.log('🎬 Filtered filmmakers (role = "filmmaker"):', filmmakers);
+      console.log('📊 Number of filmmakers found:', filmmakers.length);
+      
+      if (filmmakers.length > 0) {
+        console.log('✅ Filmmaker details:');
+        filmmakers.forEach((filmmaker, index) => {
+          console.log(`  ${index + 1}. ${filmmaker.first_name || 'No name'} ${filmmaker.last_name || ''} (${filmmaker.email}) - ID: ${filmmaker.id}`);
+        });
+      } else {
+        console.log('⚠️ No filmmakers found after filtering');
+        console.log('🔍 This could mean:');
+        console.log('   - No users have role="filmmaker" (check database)');
+        console.log('   - RLS policies are blocking access');
+        console.log('   - The role field contains different values');
+      }
+      
+      // Set the filmmakers in state to populate dropdown
+      setFilmmakers(filmmakers);
+      console.log('✅ Filmmakers state updated successfully');
+      
+    } catch (error) {
+      console.error('💥 Unexpected error fetching filmmakers:', error);
+      console.error('🔍 Error stack:', error.stack);
+      setFilmmakers([]);
+    }
+  };
         .from('users')
         .select('id, email, first_name, last_name, role, created_at')
         .order('created_at', { ascending: false });
