@@ -94,6 +94,9 @@ export function Login({ onToggleMode }: LoginProps) {
                 Sign up here
               </button>
             </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Admin users: Please sign up first to create your account
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -61,10 +61,31 @@ export function useAuth() {
   const signIn = async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase not configured') };
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    // If login fails and this is an admin email, suggest they need to sign up first
+    if (error && error.message === 'Invalid login credentials') {
+      const adminEmails = [
+        'nancycriss@yahoo.com',
+        'sherri@olivebranch.tv',
+        'nancy@olivebranch.tv',
+        'info@olivebranchfilmstudios.com',
+        'mail@nandarpictures.com'
+      ];
+      
+      const isAdmin = adminEmails.includes(email.toLowerCase()) || 
+                     email.toLowerCase().endsWith('@nandarpictures.com');
+      
+      if (isAdmin) {
+        return { 
+          error: new Error('Admin account not found. Please sign up first to create your admin account.') 
+        };
+      }
+    }
+    
     return { error };
   };
 
