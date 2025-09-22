@@ -130,81 +130,52 @@ export function AdminDashboard() {
   const fetchFilmmakers = async () => {
     if (!supabase) return;
     
+    console.log('🎬 Fetching filmmakers from users table...');
+    
     try {
-      console.log('=== FILMMAKER FETCH DEBUG START ===');
-      console.log('Supabase client exists:', !!supabase);
-      console.log('Current user profile:', profile);
-     
-      // Since we know the user is admin, let's try a more direct approach
-      console.log('Attempting to fetch all users with role filmmaker...');
-      
-      const { data: filmmakerData, error } = await supabase
+      // Fetch all users from the users table
+      const { data: allUsers, error } = await supabase
         .from('users')
         .select('id, email, first_name, last_name, role, created_at')
-        .eq('role', 'filmmaker')
         .order('created_at', { ascending: false });
       
-      console.log('Raw Supabase response:', { data: filmmakerData, error });
-
+      console.log('📊 Raw users data from database:', allUsers);
+      console.log('❌ Database error (if any):', error);
+      
       if (error) {
-        console.error('Error fetching filmmakers:', error);
-        // Try alternative query without RLS restrictions
-        console.log('Trying alternative query...');
-        
-        const { data: allUsers, error: allUsersError } = await supabase
-          .from('users')
-          .select('id, email, first_name, last_name, role, created_at');
-        
-        console.log('All users query result:', { data: allUsers, error: allUsersError });
-        
-        if (allUsers) {
-          const filmmakers = allUsers.filter(user => user.role === 'filmmaker');
-          console.log('Filtered filmmakers:', filmmakers);
-          setFilmmakers(filmmakers);
-        }
+        console.error('Failed to fetch users:', error);
+        setFilmmakers([]);
         return;
       }
       
-      console.log('=== FETCH SUCCESS ===');
-      console.log('Filmmakers data:', filmmakerData);
-      console.log('Data type:', typeof filmmakerData);
-      console.log('Is array:', Array.isArray(filmmakerData));
-      console.log('Length:', filmmakerData?.length);
-      
-      if (filmmakerData && filmmakerData.length > 0) {
-        console.log('First filmmaker:', filmmakerData[0]);
-        console.log('All filmmaker emails:', filmmakerData.map(f => f.email));
-      }
-      
-      setFilmmakers(filmmakerData || []);
-      console.log('=== FILMMAKER FETCH DEBUG END ===');
-    } catch (error) {
-      console.error('=== UNEXPECTED ERROR ===');
-      console.error('Error object:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      console.error('Error name:', error.name);
-      console.error('=== END UNEXPECTED ERROR ===');
-      
-      // Try one more fallback approach
-      console.log('Trying fallback approach - fetch all users and filter client-side...');
-      try {
-        const { data: allUsers, error: fallbackError } = await supabase
-          .from('users')
-          .select('id, email, first_name, last_name, role, created_at');
-        
-        if (!fallbackError && allUsers) {
-          const filmmakers = allUsers.filter(user => user.role === 'filmmaker');
-          console.log('Fallback - found filmmakers:', filmmakers);
-          setFilmmakers(filmmakers);
-        } else {
-          console.error('Fallback also failed:', fallbackError);
-          setFilmmakers([]);
-        }
-      } catch (fallbackError) {
-        console.error('Fallback approach failed:', fallbackError);
+      if (!allUsers || !Array.isArray(allUsers)) {
+        console.error('Invalid data format received:', allUsers);
         setFilmmakers([]);
+        return;
       }
+      
+      // Filter users where role = 'filmmaker' in JavaScript
+      const filmmakers = allUsers.filter(user => user.role === 'filmmaker');
+      
+      console.log('🎭 Filtered filmmakers (role = "filmmaker"):', filmmakers);
+      console.log('📈 Number of filmmakers found:', filmmakers.length);
+      
+      if (filmmakers.length > 0) {
+        console.log('👥 Filmmaker details:');
+        filmmakers.forEach((filmmaker, index) => {
+          console.log(`  ${index + 1}. ${filmmaker.first_name} ${filmmaker.last_name} (${filmmaker.email}) - ID: ${filmmaker.id}`);
+        });
+      } else {
+        console.log('⚠️ No filmmakers found in the users table');
+      }
+      
+      // Set the filmmakers in state to populate dropdown
+      setFilmmakers(filmmakers);
+      console.log('✅ Filmmakers state updated successfully');
+      
+    } catch (error) {
+      console.error('💥 Unexpected error fetching filmmakers:', error);
+      setFilmmakers([]);
     }
   };
 
