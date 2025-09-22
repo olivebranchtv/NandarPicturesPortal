@@ -831,6 +831,11 @@ export function AdminDashboard() {
                       <option value="" disabled>No filmmakers found</option>
                     )}
                   </select>
+                  {filmmakers.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No filmmakers found. Please create a filmmaker first.
+                    </p>
+                  )}
                 </div>
 
                 <Input
