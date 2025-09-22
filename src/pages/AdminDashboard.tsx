@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Users, Film, DollarSign, Clock, TrendingUp, AlertCircle, Plus, Edit, Trash2 } from 'lucide-react';
+import { Users, Film, DollarSign, Clock, TrendingUp, AlertCircle, Plus, Edit, Trash2, Save, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -13,6 +13,17 @@ interface PaymentFormData {
   payment_date: string;
   gross_amount: string;
   notes: string;
+}
+
+interface TitleFormData {
+  title_name: string;
+  content_type: 'movie' | 'series' | 'episode';
+  filmmaker_id: string;
+  description: string;
+  genre: string;
+  release_date: string;
+  duration_minutes: string;
+  rating: string;
 }
 
 interface DashboardStats {
@@ -33,10 +44,14 @@ export function AdminDashboard() {
   const [pendingRequests, setPendingRequests] = useState<PaymentRequest[]>([]);
   const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
   const [filmmakerBalances, setFilmmakerBalances] = useState<FilmmakerBalance[]>([]);
+  const [allFilmmakers, setAllFilmmakers] = useState<User[]>([]);
+  const [allTitles, setAllTitles] = useState<Content[]>([]);
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showTitleForm, setShowTitleForm] = useState(false);
   const [editingPayment, setEditingPayment] = useState<StreamingPayment | null>(null);
+  const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentFormData>({
     title_id: '',
     platform: '',
@@ -44,6 +59,16 @@ export function AdminDashboard() {
     payment_date: '',
     gross_amount: '',
     notes: ''
+  });
+  const [titleForm, setTitleForm] = useState<TitleFormData>({
+    title_name: '',
+    content_type: 'movie',
+    filmmaker_id: '',
+    description: '',
+    genre: '',
+    release_date: '',
+    duration_minutes: '',
+    rating: ''
   });
 
   useEffect(() => {
@@ -53,7 +78,7 @@ export function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       // Fetch stats
-      const [titlesResult, usersResult, paymentsResult, streamingResult, balancesResult] = await Promise.all([
+      const [titlesResult, usersResult, paymentsResult, streamingResult, balancesResult, filmmakersResult] = await Promise.all([
         supabase.from('content').select('revenue_total'),
         supabase.from('users').select('id').eq('role', 'filmmaker'),
         supabase.from('payment_requests').select('*').eq('status', 'pending'),
@@ -64,7 +89,8 @@ export function AdminDashboard() {
         supabase.from('filmmaker_balances').select(`
           *,
           users!inner(first_name, last_name, email)
-        `)
+        `),
+        supabase.from('users').select('*').eq('role', 'filmmaker')
       ]);
 
       if (titlesResult.error) throw titlesResult.error;
@@ -72,6 +98,7 @@ export function AdminDashboard() {
       if (paymentsResult.error) throw paymentsResult.error;
       if (streamingResult.error) throw streamingResult.error;
       if (balancesResult.error) throw balancesResult.error;
+      if (filmmakersResult.error) throw filmmakersResult.error;
 
       const totalRevenue = titlesResult.data?.reduce((sum, title) => sum + (title.revenue_total || 0), 0) || 0;
 
@@ -85,19 +112,20 @@ export function AdminDashboard() {
       setPendingRequests(paymentsResult.data || []);
       setStreamingPayments(streamingResult.data || []);
       setFilmmakerBalances(balancesResult.data || []);
+      setAllFilmmakers(filmmakersResult.data || []);
 
       // Fetch recent titles with filmmaker info
-      const { data: titles, error: titlesError } = await supabase
+      const { data: allTitlesData, error: titlesError } = await supabase
         .from('content')
         .select(`
           *,
           users!content_filmmaker_id_fkey (first_name, last_name, email)
         `)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
 
       if (titlesError) throw titlesError;
-      setRecentTitles(titles || []);
+      setAllTitles(allTitlesData || []);
+      setRecentTitles(allTitlesData?.slice(0, 5) || []);
 
       // Create sample revenue data for chart
       const chartData = streamingResult.data?.slice(0, 5).map(payment => ({
@@ -111,6 +139,89 @@ export function AdminDashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTitleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const titleData = {
+        title_name: titleForm.title_name,
+        content_type: titleForm.content_type,
+        filmmaker_id: titleForm.filmmaker_id,
+        description: titleForm.description || null,
+        genre: titleForm.genre || null,
+        release_date: titleForm.release_date || null,
+        duration_minutes: titleForm.duration_minutes ? parseInt(titleForm.duration_minutes) : null,
+        rating: titleForm.rating || null,
+        status: 'approved' // Admin-added titles are automatically approved
+      };
+
+      if (editingTitle) {
+        const { error } = await supabase
+          .from('content')
+          .update(titleData)
+          .eq('id', editingTitle.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('content')
+          .insert(titleData);
+        
+        if (error) throw error;
+      }
+
+      // Reset form and refresh data
+      setTitleForm({
+        title_name: '',
+        content_type: 'movie',
+        filmmaker_id: '',
+        description: '',
+        genre: '',
+        release_date: '',
+        duration_minutes: '',
+        rating: ''
+      });
+      setShowTitleForm(false);
+      setEditingTitle(null);
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error saving title:', error);
+      alert('Error saving title. Please try again.');
+    }
+  };
+
+  const handleEditTitle = (title: Content) => {
+    setEditingTitle(title);
+    setTitleForm({
+      title_name: title.title_name,
+      content_type: title.content_type,
+      filmmaker_id: title.filmmaker_id || '',
+      description: title.description || '',
+      genre: title.genre || '',
+      release_date: title.release_date || '',
+      duration_minutes: title.duration_minutes?.toString() || '',
+      rating: title.rating || ''
+    });
+    setShowTitleForm(true);
+  };
+
+  const handleDeleteTitle = async (titleId: string) => {
+    if (!confirm('Are you sure you want to delete this title? This will also delete all associated payments and data.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('content')
+        .delete()
+        .eq('id', titleId);
+      
+      if (error) throw error;
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error deleting title:', error);
+      alert('Error deleting title. Please try again.');
     }
   };
 
@@ -252,6 +363,189 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Title Management Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Title Management</h3>
+              <Button
+                onClick={() => {
+                  setShowTitleForm(!showTitleForm);
+                  setEditingTitle(null);
+                  setTitleForm({
+                    title_name: '',
+                    content_type: 'movie',
+                    filmmaker_id: '',
+                    description: '',
+                    genre: '',
+                    release_date: '',
+                    duration_minutes: '',
+                    rating: ''
+                  });
+                }}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Title
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showTitleForm && (
+              <form onSubmit={handleTitleSubmit} className="space-y-4 mb-6">
+                <Input
+                  label="Title Name"
+                  value={titleForm.title_name}
+                  onChange={(e) => setTitleForm({...titleForm, title_name: e.target.value})}
+                  placeholder="Enter title name"
+                  required
+                />
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Content Type
+                  </label>
+                  <select
+                    value={titleForm.content_type}
+                    onChange={(e) => setTitleForm({...titleForm, content_type: e.target.value as 'movie' | 'series' | 'episode'})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="movie">Movie</option>
+                    <option value="series">Series</option>
+                    <option value="episode">Episode</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filmmaker
+                  </label>
+                  <select
+                    value={titleForm.filmmaker_id}
+                    onChange={(e) => setTitleForm({...titleForm, filmmaker_id: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select a filmmaker</option>
+                    {allFilmmakers.map(filmmaker => (
+                      <option key={filmmaker.id} value={filmmaker.id}>
+                        {filmmaker.first_name && filmmaker.last_name 
+                          ? `${filmmaker.first_name} ${filmmaker.last_name} (${filmmaker.email})`
+                          : filmmaker.email
+                        }
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={titleForm.description}
+                    onChange={(e) => setTitleForm({...titleForm, description: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    rows={3}
+                    placeholder="Brief description of the title"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Genre"
+                    value={titleForm.genre}
+                    onChange={(e) => setTitleForm({...titleForm, genre: e.target.value})}
+                    placeholder="e.g., Drama, Comedy"
+                  />
+                  
+                  <Input
+                    label="Rating"
+                    value={titleForm.rating}
+                    onChange={(e) => setTitleForm({...titleForm, rating: e.target.value})}
+                    placeholder="e.g., PG-13, R"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="date"
+                    label="Release Date"
+                    value={titleForm.release_date}
+                    onChange={(e) => setTitleForm({...titleForm, release_date: e.target.value})}
+                  />
+                  
+                  <Input
+                    type="number"
+                    label="Duration (minutes)"
+                    value={titleForm.duration_minutes}
+                    onChange={(e) => setTitleForm({...titleForm, duration_minutes: e.target.value})}
+                    placeholder="120"
+                  />
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button type="submit">
+                    <Save className="h-4 w-4 mr-2" />
+                    {editingTitle ? 'Update Title' : 'Add Title'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setShowTitleForm(false);
+                      setEditingTitle(null);
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+            
+            {/* Recent Titles List */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900">Recent Titles</h4>
+              {allTitles.slice(0, 5).map((title: any) => (
+                <div key={title.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {title.title_name}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {title.content_type} • {title.genre || 'No genre'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Filmmaker: {title.users?.first_name && title.users?.last_name 
+                        ? `${title.users.first_name} ${title.users.last_name}`
+                        : title.users?.email || 'Unassigned'
+                      }
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleEditTitle(title)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDeleteTitle(title.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Revenue Chart */}
         <Card>
           <CardHeader>
@@ -351,7 +645,7 @@ export function AdminDashboard() {
                     required
                   >
                     <option value="">Select a title</option>
-                    {recentTitles.map(title => (
+                    {allTitles.map(title => (
                       <option key={title.id} value={title.id}>
                         {title.title_name}
                       </option>
@@ -500,10 +794,89 @@ export function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Recent Titles */}
+      {/* All Titles */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Recent Titles</h3>
+          <h3 className="text-lg font-semibold">All Titles</h3>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Title
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Filmmaker
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Genre
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Revenue
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allTitles.map((title: any) => (
+                  <tr key={title.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {title.title_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {title.content_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {title.users?.first_name && title.users?.last_name 
+                        ? `${title.users.first_name} ${title.users.last_name}`
+                        : title.users?.email || 'Unassigned'
+                      }
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {title.genre || 'Not specified'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      ${title.revenue_total?.toLocaleString() || '0'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleEditTitle(title)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => handleDeleteTitle(title.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Titles Summary */}
+      <Card>
+        <CardHeader>
+          <h3 className="text-lg font-semibold">Recent Titles Summary</h3>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
