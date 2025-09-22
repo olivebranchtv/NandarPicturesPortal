@@ -237,35 +237,6 @@ export function AdminDashboard() {
     }
   };
 
-  const fetchPaymentRequests = async () => {
-    if (!supabase) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('payment_requests')
-        .select(`
-          *,
-          filmmaker:filmmaker_id (
-            id,
-            email,
-            first_name,
-            last_name
-          )
-        `)
-        .order('requested_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching payment requests:', error);
-        return;
-      }
-      
-      setPaymentRequests(data || []);
-    } catch (error) {
-      console.error('Unexpected error fetching payment requests:', error);
-      setPaymentRequests([]);
-    }
-  };
-
   const fetchStreamingPayments = async () => {
     if (!supabase) return;
     
