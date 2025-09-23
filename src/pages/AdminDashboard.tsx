@@ -642,8 +642,8 @@ export function AdminDashboard() {
         gross_amount: '',
         distribution_percentage: '50',
         notes: '',
-      console.log('Streaming payments query result:', { paymentsData, paymentsError });
-      });
+       });
+       console.log('Add payment form submitted');
       setShowAddPayment(false);
       fetchDashboardData();
   const handleApproveTitle = async (titleId: string) => {
