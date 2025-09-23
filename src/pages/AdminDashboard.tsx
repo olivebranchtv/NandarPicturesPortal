@@ -302,7 +302,7 @@ export function AdminDashboard() {
       duration_minutes: title.duration_minutes?.toString() || '',
       rating: title.rating || '',
       filmmaker_id: title.filmmaker_id || '',
-      distribution_percentage: title.title_distribution_settings?.[0]?.company_percentage?.toString() || '20',
+      distribution_percentage: title.title_distribution_settings?.[0]?.company_percentage?.toString() || '25',
       previous_gross_amount: title.previous_gross_amount?.toString() || '',
       previous_expenses: title.previous_expenses?.toString() || '',
       previous_distribution_fee: title.previous_distribution_fee?.toString() || '',
