@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Film, DollarSign, Clock, TrendingUp, Plus } from 'lucide-react';
+import { Film, DollarSign, Clock, TrendingUp, Plus, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface FilmmakerStats {
   totalTitles: number;
@@ -321,6 +320,30 @@ export function FilmmakerDashboard() {
             </button>
           </div>
           
+          {/* Tab Navigation */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('financial')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'financial'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Financial
+            </button>
+          </div>
+          
           <div className="text-sm text-gray-500">
             Welcome back, {profile?.first_name || 'Filmmaker'}!
           </div>
@@ -329,55 +352,38 @@ export function FilmmakerDashboard() {
 
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
-        <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
+        <div className="space-y-6">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="h-6 w-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Financial Dashboard</h2>
+          </div>
+          
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Financial Analytics</h3>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Financial Dashboard Coming Soon</h3>
+                <p className="text-gray-500">
+                  Comprehensive financial analytics with charts, metrics, and export capabilities will be available here.
+                </p>
+                <div className="mt-4 text-sm text-gray-400">
+                  <p>Features will include:</p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Revenue vs Expenses charts</li>
+                    <li>Historical data integration</li>
+                    <li>Export to PDF/CSV</li>
+                    <li>Advanced filtering options</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <>
-          {/* Debug Information */}
-          {process.env.NODE_ENV === 'development' && (
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-semibold text-blue-600">Debug Information</h3>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p><strong>Filmmaker ID:</strong> {profile?.id}</p>
-                    <p><strong>Filmmaker Email:</strong> {profile?.email}</p>
-                    <p><strong>Titles Found:</strong> {titles.length}</p>
-                    <p><strong>Streaming Payments:</strong> {streamingPayments.filter(p => !p.id.toString().startsWith('historical')).length}</p>
-                    <p><strong>Historical Payments:</strong> {streamingPayments.filter(p => p.id.toString().startsWith('historical')).length}</p>
-                  </div>
-                  <div>
-                    <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
-                    <p><strong>Balance Record:</strong> {balance ? 'Found' : 'Not Found'}</p>
-                    <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
-                    <p><strong>Role:</strong> {profile?.role}</p>
-                    <p><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</p>
-                  </div>
-                </div>
-                {titles.length > 0 && (
-                  <div className="mt-4">
-                    <p><strong>All Titles:</strong></p>
-                    <ul className="list-disc list-inside text-xs">
-                      {titles.map(title => (
-                        <li key={title.id}>
-                          {title.title_name} (ID: {title.id}) - Status: {title.status} - 
-                          Historical: ${title.previous_gross_amount || 0}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {titles.length === 0 && (
-                  <div className="mt-4 p-4 bg-red-50 rounded-lg">
-                    <p className="text-red-800 font-medium">No titles found for this filmmaker!</p>
-                    <p className="text-red-600 text-sm">Check console for detailed debugging information.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard

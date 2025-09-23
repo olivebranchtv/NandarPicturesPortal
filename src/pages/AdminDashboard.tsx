@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Film, DollarSign, Clock, Plus, Check, X, Edit } from 'lucide-react';
+import { Users, Film, DollarSign, Clock, Plus, Check, X, Edit, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface AdminStats {
   totalUsers: number;
@@ -363,36 +362,66 @@ export function AdminDashboard() {
 
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
-        <FinancialDashboard userId={profile?.id} userRole="admin" />
+        <div className="space-y-6">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="h-6 w-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Financial Dashboard</h2>
+          </div>
+          
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Financial Analytics</h3>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Financial Dashboard Coming Soon</h3>
+                <p className="text-gray-500">
+                  Comprehensive financial analytics with charts, metrics, and export capabilities will be available here.
+                </p>
+                <div className="mt-4 text-sm text-gray-400">
+                  <p>Features will include:</p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Revenue vs Expenses charts for all titles</li>
+                    <li>Multi-filmmaker analytics</li>
+                    <li>Historical data integration</li>
+                    <li>Export capabilities for reports</li>
+                    <li>Advanced filtering and insights</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <>
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          icon={Users}
-          title="Total Filmmakers"
-          value={stats.totalUsers}
-          color="bg-blue-600"
-        />
-        <StatCard
-          icon={Film}
-          title="Total Titles"
-          value={stats.totalTitles}
-          color="bg-green-600"
-        />
-        <StatCard
-          icon={DollarSign}
-          title="Total Revenue"
-          value={`$${stats.totalRevenue.toLocaleString()}`}
-          color="bg-purple-600"
-        />
-        <StatCard
-          icon={Clock}
-          title="Pending Approvals"
-          value={stats.pendingRequests}
-          color="bg-orange-600"
-        />
-      </div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              icon={Users}
+              title="Total Filmmakers"
+              value={stats.totalUsers}
+              color="bg-blue-600"
+            />
+            <StatCard
+              icon={Film}
+              title="Total Titles"
+              value={stats.totalTitles}
+              color="bg-green-600"
+            />
+            <StatCard
+              icon={DollarSign}
+              title="Total Revenue"
+              value={`$${stats.totalRevenue.toLocaleString()}`}
+              color="bg-purple-600"
+            />
+            <StatCard
+              icon={Clock}
+              title="Pending Approvals"
+              value={stats.pendingRequests}
+              color="bg-orange-600"
+            />
+          </div>
 
       {/* Debug Information */}
       {process.env.NODE_ENV === 'development' && (
