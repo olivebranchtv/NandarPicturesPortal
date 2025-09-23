@@ -339,15 +339,16 @@ export function AdminDashboard() {
       // Update distribution settings
       const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 20;
       const filmmakertPercentage = 100 - companyPercentage;
-       const { error: distributionError } = await supabase
-          .from('title_distribution_settings')
-          .upsert({
+
+      const { error: distributionError } = await supabase
+        .from('title_distribution_settings')
+        .upsert({
           title_id: editingTitle.id,
           company_percentage: companyPercentage,
           filmmaker_percentage: filmmakertPercentage,
-         }, {
-           onConflict: 'title_id'
-         });
+        }, {
+          onConflict: 'title_id'
+        });
 
       if (distributionError) {
         console.error('Error updating distribution settings:', distributionError);
@@ -616,7 +617,7 @@ export function AdminDashboard() {
                           {request.filmmaker?.first_name} {request.filmmaker?.last_name}
                         </p>
                         <p className="text-sm text-gray-500">
-                          ${request.amount_requested.toLocaleString()} requested
+                          Requested ${request.amount_requested.toLocaleString()}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
