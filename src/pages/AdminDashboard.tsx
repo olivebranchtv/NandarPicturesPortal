@@ -7,6 +7,7 @@ import { Input } from '../components/ui/Input';
 import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
+import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface AdminStats {
   totalUsers: number;
@@ -364,36 +365,6 @@ export function AdminDashboard() {
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
         <FinancialDashboard userRole="admin" />
-      ) : (
-        <>
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard
-              icon={Users}
-              title="Total Filmmakers"
-              value={stats.totalUsers}
-              color="bg-blue-600"
-            />
-            <StatCard
-              icon={Film}
-              title="Total Titles"
-              value={stats.totalTitles}
-              color="bg-green-600"
-            />
-            <StatCard
-              icon={DollarSign}
-              title="Total Revenue"
-              value={`$${stats.totalRevenue.toLocaleString()}`}
-              color="bg-purple-600"
-            />
-            <StatCard
-              icon={Clock}
-              title="Pending Approvals"
-              value={stats.pendingRequests}
-              color="bg-orange-600"
-            />
-          </div>
-
       {/* Debug Information */}
       {process.env.NODE_ENV === 'development' && (
         <Card>
