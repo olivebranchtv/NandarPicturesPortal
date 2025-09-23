@@ -2,6 +2,7 @@ import React from 'react';
 import { Film, LogOut, User, Settings } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from './ui/Button';
+import { ProfileSettings } from './ProfileSettings';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { profile, signOut } = useAuth();
+  const [showProfileSettings, setShowProfileSettings] = React.useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -43,6 +45,16 @@ export function Layout({ children }: LayoutProps) {
               <Button
                 variant="secondary"
                 size="sm"
+                onClick={() => setShowProfileSettings(true)}
+                className="flex items-center space-x-1"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Profile</span>
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={handleSignOut}
                 className="flex items-center space-x-1"
               >
@@ -57,6 +69,11 @@ export function Layout({ children }: LayoutProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
+
+      <ProfileSettings
+        isOpen={showProfileSettings}
+        onClose={() => setShowProfileSettings(false)}
+      />
     </div>
   );
 }
