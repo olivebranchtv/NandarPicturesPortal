@@ -37,7 +37,9 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddFilmmaker, setShowAddFilmmaker] = useState(false);
   const [showAddTitle, setShowAddTitle] = useState(false);
+  const [showEditTitle, setShowEditTitle] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
+  const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
     email: '',
     first_name: '',
@@ -53,6 +55,29 @@ export function AdminDashboard() {
     rating: '',
     filmmaker_id: '',
     distribution_percentage: '20',
+    previous_gross_amount: '',
+    previous_expenses: '',
+    previous_distribution_fee: '',
+    previous_net_revenue: '',
+    previous_amount_paid: '',
+    previous_balance_due: '',
+  });
+  const [editTitle, setEditTitle] = useState({
+    title_name: '',
+    content_type: 'movie' as 'movie' | 'series' | 'episode',
+    description: '',
+    genre: '',
+    release_date: '',
+    duration_minutes: '',
+    rating: '',
+    filmmaker_id: '',
+    distribution_percentage: '20',
+    previous_gross_amount: '',
+    previous_expenses: '',
+    previous_distribution_fee: '',
+    previous_net_revenue: '',
+    previous_amount_paid: '',
+    previous_balance_due: '',
   });
   const [newPayment, setNewPayment] = useState({
     title_id: '',
@@ -60,7 +85,6 @@ export function AdminDashboard() {
     outlet: '',
     payment_date: '',
     gross_amount: '',
-    distribution_percentage: '50',
     notes: '',
   });
 
@@ -88,12 +112,13 @@ export function AdminDashboard() {
       setFilmmakers(filmmakersData);
       console.log('Filmmakers found:', filmmakersData.length);
 
-      // Fetch all content/titles
+      // Fetch all content/titles with distribution settings
       const { data: titlesData, error: titlesError } = await supabase
         .from('content')
         .select(`
           *,
-          filmmaker:users!content_filmmaker_id_fkey(first_name, last_name, email)
+          filmmaker:users!content_filmmaker_id_fkey(first_name, last_name, email),
+          title_distribution_settings(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -209,7 +234,8 @@ export function AdminDashboard() {
           previous_amount_paid: newTitle.previous_amount_paid ? parseFloat(newTitle.previous_amount_paid) : 0,
           previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
         })
-        .select();
+        .select()
+        .single();
 
       if (error) {
         console.error('Error creating title:', error);
@@ -223,7 +249,7 @@ export function AdminDashboard() {
       const { error: distributionError } = await supabase
         .from('title_distribution_settings')
         .insert({
-          title_id: data[0].id,
+          title_id: data.id,
           company_percentage: companyPercentage,
           filmmaker_percentage: filmmakertPercentage,
         });
@@ -244,12 +270,95 @@ export function AdminDashboard() {
         rating: '',
         filmmaker_id: '',
         distribution_percentage: '20',
+        previous_gross_amount: '',
+        previous_expenses: '',
+        previous_distribution_fee: '',
+        previous_net_revenue: '',
+        previous_amount_paid: '',
+        previous_balance_due: '',
       });
       setShowAddTitle(false);
       fetchDashboardData();
     } catch (error) {
       console.error('Error creating title:', error);
       alert('Error creating title. Please try again.');
+    }
+  };
+
+  const handleEditTitle = (title: Content) => {
+    setEditingTitle(title);
+    setEditTitle({
+      title_name: title.title_name,
+      content_type: title.content_type,
+      description: title.description || '',
+      genre: title.genre || '',
+      release_date: title.release_date || '',
+      duration_minutes: title.duration_minutes?.toString() || '',
+      rating: title.rating || '',
+      filmmaker_id: title.filmmaker_id || '',
+      distribution_percentage: title.title_distribution_settings?.[0]?.company_percentage?.toString() || '20',
+      previous_gross_amount: title.previous_gross_amount?.toString() || '',
+      previous_expenses: title.previous_expenses?.toString() || '',
+      previous_distribution_fee: title.previous_distribution_fee?.toString() || '',
+      previous_net_revenue: title.previous_net_revenue?.toString() || '',
+      previous_amount_paid: title.previous_amount_paid?.toString() || '',
+      previous_balance_due: title.previous_balance_due?.toString() || '',
+    });
+    setShowEditTitle(true);
+  };
+
+  const handleUpdateTitle = async () => {
+    if (!editingTitle || !editTitle.title_name || !editTitle.filmmaker_id) {
+      alert('Please fill in title name and select a filmmaker');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('content')
+        .update({
+          title_name: editTitle.title_name,
+          content_type: editTitle.content_type,
+          description: editTitle.description || null,
+          genre: editTitle.genre || null,
+          release_date: editTitle.release_date || null,
+          duration_minutes: editTitle.duration_minutes ? parseInt(editTitle.duration_minutes) : null,
+          rating: editTitle.rating || null,
+          filmmaker_id: editTitle.filmmaker_id,
+          previous_gross_amount: editTitle.previous_gross_amount ? parseFloat(editTitle.previous_gross_amount) : 0,
+          previous_expenses: editTitle.previous_expenses ? parseFloat(editTitle.previous_expenses) : 0,
+          previous_distribution_fee: editTitle.previous_distribution_fee ? parseFloat(editTitle.previous_distribution_fee) : 0,
+          previous_net_revenue: editTitle.previous_net_revenue ? parseFloat(editTitle.previous_net_revenue) : 0,
+          previous_amount_paid: editTitle.previous_amount_paid ? parseFloat(editTitle.previous_amount_paid) : 0,
+          previous_balance_due: editTitle.previous_balance_due ? parseFloat(editTitle.previous_balance_due) : 0,
+        })
+        .eq('id', editingTitle.id);
+
+      if (error) throw error;
+
+      // Update distribution settings
+      const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 20;
+      const filmmakertPercentage = 100 - companyPercentage;
+
+      const { error: distributionError } = await supabase
+        .from('title_distribution_settings')
+        .upsert({
+          title_id: editingTitle.id,
+          company_percentage: companyPercentage,
+          filmmaker_percentage: filmmakertPercentage,
+        });
+
+      if (distributionError) {
+        console.error('Error updating distribution settings:', distributionError);
+      }
+
+      alert('Title updated successfully!');
+      setShowEditTitle(false);
+      setEditingTitle(null);
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error updating title:', error);
+      alert('Error updating title. Please try again.');
     }
   };
 
@@ -260,6 +369,21 @@ export function AdminDashboard() {
     }
 
     try {
+      // Get the title's distribution settings
+      const { data: titleData, error: titleError } = await supabase
+        .from('content')
+        .select(`
+          *,
+          title_distribution_settings(*)
+        `)
+        .eq('id', newPayment.title_id)
+        .single();
+
+      if (titleError) throw titleError;
+
+      // Use the title's distribution percentage, default to 50% if not set
+      const distributionPercentage = titleData.title_distribution_settings?.[0]?.company_percentage || 50;
+
       const { error } = await supabase
         .from('streaming_payments')
         .insert({
@@ -268,7 +392,7 @@ export function AdminDashboard() {
           outlet: newPayment.outlet || null,
           payment_date: newPayment.payment_date,
           gross_amount: parseFloat(newPayment.gross_amount),
-          distribution_percentage: parseFloat(newPayment.distribution_percentage),
+          distribution_percentage: distributionPercentage,
           notes: newPayment.notes || null,
         });
 
@@ -281,7 +405,6 @@ export function AdminDashboard() {
         outlet: '',
         payment_date: '',
         gross_amount: '',
-        distribution_percentage: '50',
         notes: '',
       });
       setShowAddPayment(false);
@@ -670,6 +793,7 @@ export function AdminDashboard() {
                               className="flex items-center space-x-1"
                             >
                               <Edit className="h-3 w-3" />
+                              <span>Edit</span>
                             </Button>
                           </td>
                         </tr>
@@ -734,98 +858,162 @@ export function AdminDashboard() {
       {/* Add Title Modal */}
       {showAddTitle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-lg font-semibold mb-4">Add New Title</h3>
-              <div className="space-y-4">
-                <Input
-                  label="Title Name"
-                  value={newTitle.title_name}
-                  onChange={(e) => setNewTitle({ ...newTitle, title_name: e.target.value })}
-                  placeholder="Enter title name"
-                />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
-                  <select
-                    value={newTitle.content_type}
-                    onChange={(e) => setNewTitle({ ...newTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="movie">Movie</option>
-                    <option value="series">Series</option>
-                    <option value="episode">Episode</option>
-                  </select>
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h4 className="text-md font-medium text-gray-900">Basic Information</h4>
+                  <Input
+                    label="Title Name"
+                    value={newTitle.title_name}
+                    onChange={(e) => setNewTitle({ ...newTitle, title_name: e.target.value })}
+                    placeholder="Enter title name"
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
+                      <select
+                        value={newTitle.content_type}
+                        onChange={(e) => setNewTitle({ ...newTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="movie">Movie</option>
+                        <option value="series">Series</option>
+                        <option value="episode">Episode</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Filmmaker</label>
+                      <select
+                        value={newTitle.filmmaker_id}
+                        onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select a filmmaker</option>
+                        {filmmakers.map((filmmaker) => (
+                          <option key={filmmaker.id} value={filmmaker.id}>
+                            {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <Input
+                    label="Description"
+                    value={newTitle.description}
+                    onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
+                    placeholder="Enter description (optional)"
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Genre"
+                      value={newTitle.genre}
+                      onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
+                      placeholder="e.g., Drama, Comedy"
+                    />
+                    <Input
+                      label="Rating"
+                      value={newTitle.rating}
+                      onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
+                      placeholder="e.g., PG-13, R"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Release Date"
+                      type="date"
+                      value={newTitle.release_date}
+                      onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
+                    />
+                    <Input
+                      label="Duration (minutes)"
+                      type="number"
+                      value={newTitle.duration_minutes}
+                      onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
+                      placeholder="120"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Filmmaker</label>
-                  <select
-                    value={newTitle.filmmaker_id}
-                    onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a filmmaker</option>
-                    {filmmakers.map((filmmaker) => (
-                      <option key={filmmaker.id} value={filmmaker.id}>
-                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
-                      </option>
-                    ))}
-                  </select>
+                
+                {/* Distribution Settings */}
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Distribution Settings</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <Input
+                      label="Company Distribution Percentage (%)"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={newTitle.distribution_percentage}
+                      onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
+                      placeholder="20"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Percentage of payments that goes to the company. Filmmaker receives the remaining percentage.
+                      Example: 20% means company gets 20%, filmmaker gets 80%.
+                    </p>
+                  </div>
                 </div>
-                <Input
-                  label="Description"
-                  value={newTitle.description}
-                  onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
-                  placeholder="Enter description (optional)"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Genre"
-                    value={newTitle.genre}
-                    onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
-                    placeholder="e.g., Drama, Comedy"
-                  />
-                  <Input
-                    label="Rating"
-                    value={newTitle.rating}
-                    onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
-                    placeholder="e.g., PG-13, R"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Release Date"
-                    type="date"
-                    value={newTitle.release_date}
-                    onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
-                  />
-                  <Input
-                    label="Duration (minutes)"
-                    type="number"
-                    value={newTitle.duration_minutes}
-                    onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
-                    placeholder="120"
-                  />
-                </div>
-              </div>
-              
-              {/* Distribution Settings */}
-              <div className="border-t pt-4">
-                <h4 className="text-md font-medium text-gray-900 mb-3">Distribution Settings</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <Input
-                    label="Company Distribution Percentage (%)"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={newTitle.distribution_percentage}
-                    onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
-                    placeholder="20"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Percentage of payments that goes to the company. Filmmaker receives the remaining percentage.
-                    Example: 20% means company gets 20%, filmmaker gets 80%.
+
+                {/* Historical Accounting Data */}
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Historical Accounting Data</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Enter financial data from your previous system to maintain complete records.
                   </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Previous Gross Amount"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_gross_amount}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_gross_amount: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Expenses"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_expenses}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_expenses: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Distribution Fee"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_distribution_fee}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_distribution_fee: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Net Revenue"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_net_revenue}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_net_revenue: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Amount Paid"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_amount_paid}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_amount_paid: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Balance Due"
+                      type="number"
+                      step="0.01"
+                      value={newTitle.previous_balance_due}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_balance_due: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
@@ -834,6 +1022,180 @@ export function AdminDashboard() {
                 </Button>
                 <Button onClick={handleCreateTitle}>
                   Create Title
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Title Modal */}
+      {showEditTitle && editingTitle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Edit Title: {editingTitle.title_name}</h3>
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h4 className="text-md font-medium text-gray-900">Basic Information</h4>
+                  <Input
+                    label="Title Name"
+                    value={editTitle.title_name}
+                    onChange={(e) => setEditTitle({ ...editTitle, title_name: e.target.value })}
+                    placeholder="Enter title name"
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
+                      <select
+                        value={editTitle.content_type}
+                        onChange={(e) => setEditTitle({ ...editTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="movie">Movie</option>
+                        <option value="series">Series</option>
+                        <option value="episode">Episode</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Filmmaker</label>
+                      <select
+                        value={editTitle.filmmaker_id}
+                        onChange={(e) => setEditTitle({ ...editTitle, filmmaker_id: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select a filmmaker</option>
+                        {filmmakers.map((filmmaker) => (
+                          <option key={filmmaker.id} value={filmmaker.id}>
+                            {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <Input
+                    label="Description"
+                    value={editTitle.description}
+                    onChange={(e) => setEditTitle({ ...editTitle, description: e.target.value })}
+                    placeholder="Enter description (optional)"
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Genre"
+                      value={editTitle.genre}
+                      onChange={(e) => setEditTitle({ ...editTitle, genre: e.target.value })}
+                      placeholder="e.g., Drama, Comedy"
+                    />
+                    <Input
+                      label="Rating"
+                      value={editTitle.rating}
+                      onChange={(e) => setEditTitle({ ...editTitle, rating: e.target.value })}
+                      placeholder="e.g., PG-13, R"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Release Date"
+                      type="date"
+                      value={editTitle.release_date}
+                      onChange={(e) => setEditTitle({ ...editTitle, release_date: e.target.value })}
+                    />
+                    <Input
+                      label="Duration (minutes)"
+                      type="number"
+                      value={editTitle.duration_minutes}
+                      onChange={(e) => setEditTitle({ ...editTitle, duration_minutes: e.target.value })}
+                      placeholder="120"
+                    />
+                  </div>
+                </div>
+                
+                {/* Distribution Settings */}
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Distribution Settings</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <Input
+                      label="Company Distribution Percentage (%)"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={editTitle.distribution_percentage}
+                      onChange={(e) => setEditTitle({ ...editTitle, distribution_percentage: e.target.value })}
+                      placeholder="20"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Percentage of payments that goes to the company. Filmmaker receives the remaining percentage.
+                      Example: 20% means company gets 20%, filmmaker gets 80%.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Historical Accounting Data */}
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Historical Accounting Data</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Update financial data from your previous system.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Previous Gross Amount"
+                      type="number"
+                      step="0.01"
+                      value={editTitle.previous_gross_amount}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_gross_amount: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Expenses"
+                      type="number"
+                      step="0.01"
+                      value={editTitle.previous_expenses}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_expenses: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Distribution Fee"
+                      type="number"
+                      step="0.01"
+                      value={editTitle.previous_distribution_fee}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_distribution_fee: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Net Revenue"
+                      type="number"
+                      step="0.01"
+                      value={editTitle.previous_net_revenue}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_net_revenue: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Amount Paid"
+                      type="number"
+                      step="0.01"
+                      value={editTitle.previous_amount_paid}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_amount_paid: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Balance Due"
+                      type="number"
+                      step="0.01"
+                      value={editTitle.previous_balance_due}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_balance_due: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button variant="secondary" onClick={() => setShowEditTitle(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateTitle}>
+                  Update Title
                 </Button>
               </div>
             </div>
@@ -858,7 +1220,7 @@ export function AdminDashboard() {
                     <option value="">Select a title</option>
                     {titles.map((title) => (
                       <option key={title.id} value={title.id}>
-                        {title.title_name}
+                        {title.title_name} ({title.title_distribution_settings?.[0]?.company_percentage || 50}% company split)
                       </option>
                     ))}
                   </select>
@@ -890,18 +1252,14 @@ export function AdminDashboard() {
                   placeholder="1000.00"
                 />
                 <Input
-                  label="Distribution Percentage"
-                  type="number"
-                  value={newPayment.distribution_percentage}
-                  onChange={(e) => setNewPayment({ ...newPayment, distribution_percentage: e.target.value })}
-                  placeholder="50"
-                />
-                <Input
                   label="Notes (optional)"
                   value={newPayment.notes}
                   onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
                   placeholder="Additional notes"
                 />
+                <p className="text-xs text-gray-500">
+                  Distribution percentage will be automatically applied based on the selected title's settings.
+                </p>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <Button variant="secondary" onClick={() => setShowAddPayment(false)}>
