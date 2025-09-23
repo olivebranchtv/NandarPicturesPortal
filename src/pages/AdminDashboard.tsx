@@ -377,28 +377,6 @@ export function AdminDashboard() {
     }
   };
 
-  const handleDeleteTitle = async (titleId: string) => {
-    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      console.log('Deleting title:', titleId);
-      
-      const { error } = await supabase
-        .from('content')
-        .delete()
-        .eq('id', titleId);
-
-      if (error) throw error;
-
-      alert('Title deleted successfully!');
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error deleting title:', error);
-      alert('Error deleting title. Please try again.');
-    }
-  };
   const handleAddPayment = async () => {
     if (!newPayment.title_id || !newPayment.platform || !newPayment.payment_date || !newPayment.gross_amount) {
       alert('Please fill in all required fields');
@@ -469,6 +447,27 @@ export function AdminDashboard() {
     } catch (error) {
       console.error('Error approving payment:', error);
       alert('Error approving payment request. Please try again.');
+    }
+  };
+
+  const handleDeleteTitle = async (titleId: string) => {
+    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('content')
+        .delete()
+        .eq('id', titleId);
+
+      if (error) throw error;
+
+      alert('Title deleted successfully!');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error deleting title:', error);
+      alert('Error deleting title. Please try again.');
     }
   };
 
