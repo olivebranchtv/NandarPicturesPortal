@@ -7,6 +7,7 @@ import { Input } from '../components/ui/Input';
 import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
+import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
 
 interface AdminStats {
   totalUsers: number;
@@ -552,7 +553,15 @@ export function AdminDashboard() {
 
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
-        <FinancialDashboard userRole="admin" />
+        <div className="space-y-6">
+          <FinancialDashboard userRole="admin" />
+          <PaymentHistoryTable
+            streamingPayments={streamingPayments}
+            titles={titles}
+            filmmakers={filmmakers}
+            refreshData={fetchDashboardData}
+          />
+        </div>
       ) : (
         <>
           {/* Debug Information */}
