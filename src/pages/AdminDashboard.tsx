@@ -53,6 +53,7 @@ export function AdminDashboard() {
     duration_minutes: '',
     rating: '',
     filmmaker_id: '',
+    distribution_percentage: '20',
   });
   const [newPayment, setNewPayment] = useState({
     title_id: '',
@@ -202,9 +203,35 @@ export function AdminDashboard() {
           rating: newTitle.rating || null,
           filmmaker_id: newTitle.filmmaker_id,
           status: 'approved', // Admin-created titles are auto-approved
+          previous_gross_amount: newTitle.previous_gross_amount ? parseFloat(newTitle.previous_gross_amount) : 0,
+          previous_expenses: newTitle.previous_expenses ? parseFloat(newTitle.previous_expenses) : 0,
+          previous_distribution_fee: newTitle.previous_distribution_fee ? parseFloat(newTitle.previous_distribution_fee) : 0,
+          previous_net_revenue: newTitle.previous_net_revenue ? parseFloat(newTitle.previous_net_revenue) : 0,
+          previous_amount_paid: newTitle.previous_amount_paid ? parseFloat(newTitle.previous_amount_paid) : 0,
+          previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating title:', error);
+        throw error;
+      }
+
+      // Create distribution settings for the title
+      const companyPercentage = newTitle.distribution_percentage ? parseFloat(newTitle.distribution_percentage) : 20;
+      const filmmakertPercentage = 100 - companyPercentage;
+
+      const { error: distributionError } = await supabase
+        .from('title_distribution_settings')
+        .insert({
+          title_id: data[0].id,
+          company_percentage: companyPercentage,
+          filmmaker_percentage: filmmakertPercentage,
+        });
+
+      if (distributionError) {
+        console.error('Error creating distribution settings:', distributionError);
+        // Don't throw here - title was created successfully, just log the error
+      }
 
       alert('Title created successfully!');
       setNewTitle({
@@ -216,6 +243,7 @@ export function AdminDashboard() {
         duration_minutes: '',
         rating: '',
         filmmaker_id: '',
+        distribution_percentage: '20',
       });
       setShowAddTitle(false);
       fetchDashboardData();
@@ -725,6 +753,27 @@ export function AdminDashboard() {
                     onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
                     placeholder="120"
                   />
+                </div>
+              </div>
+              
+              {/* Distribution Settings */}
+              <div className="border-t pt-4">
+                <h4 className="text-md font-medium text-gray-900 mb-3">Distribution Settings</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <Input
+                    label="Company Distribution Percentage (%)"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={newTitle.distribution_percentage}
+                    onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
+                    placeholder="20"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Percentage of payments that goes to the company. Filmmaker receives the remaining percentage.
+                    Example: 20% means company gets 20%, filmmaker gets 80%.
+                  </p>
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
