@@ -852,6 +852,7 @@ export function AdminDashboard() {
               )}
             </CardContent>
           </Card>
+        </>
       )}
 
       {/* Add Title Modal */}
@@ -887,6 +888,21 @@ export function AdminDashboard() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Filmmaker
+                  </label>
+                  <select
+                    value={newTitle.filmmaker_id}
+                    onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a filmmaker</option>
+                    {filmmakers.map((filmmaker) => (
+                      <option key={filmmaker.id} value={filmmaker.id}>
+                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Genre"
@@ -901,7 +917,7 @@ export function AdminDashboard() {
                     onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
                   />
                 </div>
-                  </label>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input
                     label="Duration (minutes)"
@@ -924,14 +940,14 @@ export function AdminDashboard() {
                     placeholder="25"
                   />
                 </div>
-                  <select
+
                 <Input
                   label="Description"
                   value={newTitle.description}
                   onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
                   placeholder="Brief description of the title"
                 />
-                    value={newTitle.filmmaker_id}
+
                 <div className="border-t pt-4">
                   <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data (Optional)</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -980,7 +996,7 @@ export function AdminDashboard() {
                   </div>
                 </div>
               </div>
-                    onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
+
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
                 <Button
                   variant="secondary"
@@ -996,7 +1012,7 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+
       {/* Edit Title Modal */}
       {showEditTitle && editingTitle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1026,7 +1042,7 @@ export function AdminDashboard() {
                     </select>
                   </div>
                 </div>
-                  >
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Filmmaker
@@ -1044,7 +1060,7 @@ export function AdminDashboard() {
                     ))}
                   </select>
                 </div>
-                    <option value="">Select a filmmaker</option>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Genre"
@@ -1059,7 +1075,7 @@ export function AdminDashboard() {
                     onChange={(e) => setEditTitle({ ...editTitle, release_date: e.target.value })}
                   />
                 </div>
-                    {filmmakers.map((filmmaker) => (
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input
                     label="Duration (minutes)"
@@ -1082,14 +1098,14 @@ export function AdminDashboard() {
                     placeholder="25"
                   />
                 </div>
-                      <option key={filmmaker.id} value={filmmaker.id}>
+
                 <Input
                   label="Description"
                   value={editTitle.description}
                   onChange={(e) => setEditTitle({ ...editTitle, description: e.target.value })}
                   placeholder="Brief description of the title"
                 />
-                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+
                 <div className="border-t pt-4">
                   <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1138,7 +1154,7 @@ export function AdminDashboard() {
                   </div>
                 </div>
               </div>
-                      </option>
+
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
                 <Button
                   variant="secondary"
@@ -1157,7 +1173,7 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
-                    ))}
+
       {/* Add Filmmaker Modal */}
       {showAddFilmmaker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1200,7 +1216,7 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
-                  </select>
+
       {/* Add Payment Modal */}
       {showAddPayment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1272,6 +1288,6 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
-                </div>
+    </div>
   );
 }
