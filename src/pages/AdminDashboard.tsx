@@ -377,6 +377,28 @@ export function AdminDashboard() {
     }
   };
 
+  const handleDeleteTitle = async (titleId: string) => {
+    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      console.log('Deleting title:', titleId);
+      
+      const { error } = await supabase
+        .from('content')
+        .delete()
+        .eq('id', titleId);
+
+      if (error) throw error;
+
+      alert('Title deleted successfully!');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error deleting title:', error);
+      alert('Error deleting title. Please try again.');
+    }
+  };
   const handleAddPayment = async () => {
     if (!newPayment.title_id || !newPayment.platform || !newPayment.payment_date || !newPayment.gross_amount) {
       alert('Please fill in all required fields');
@@ -586,7 +608,670 @@ export function AdminDashboard() {
             />
           </div>
         </>
+          {/* Revenue Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2" />
+                  Revenue Overview
+                </h3>
+              </CardHeader>
+              <CardContent>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="title" />
+                      <YAxis />
+                      <Tooltip 
+                        formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name === 'revenue' ? 'Revenue' : name === 'expenses' ? 'Expenses' : 'Net']}
+                        labelFormatter={(label) => `Title: ${label}`}
+                      />
+                      <Bar dataKey="revenue" fill="#10B981" name="Revenue" />
+                      <Bar dataKey="expenses" fill="#EF4444" name="Expenses" />
+                      <Bar dataKey="net" fill="#3B82F6" name="Net" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>No revenue data available</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Payment Requests */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Recent Payment Requests</h3>
+              </CardHeader>
+              <CardContent>
+                {paymentRequests.length > 0 ? (
+                  <div className="space-y-3">
+                    {paymentRequests.slice(0, 5).map((request) => (
+                      <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            ${request.amount_requested.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {request.filmmaker?.first_name} {request.filmmaker?.last_name}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(request.requested_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {request.status}
+                          </span>
+                          {request.status === 'pending' && (
+                            <div className="flex space-x-1 mt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApprovePayment(request.id, request.amount_requested)}
+                                className="text-xs"
+                              >
+                                <Check className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => {
+                                  // Handle reject payment
+                                }}
+                                className="text-xs"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-gray-500">No payment requests</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* All Titles Management */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <Film className="h-5 w-5 mr-2" />
+                  All Titles Management
+                </h3>
+                <div className="text-sm text-gray-500">
+                  {titles.length} title{titles.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {titles.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Title
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Filmmaker
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Revenue
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Distribution
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {titles.map((title) => (
+                        <tr key={title.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {title.title_name}
+                              </div>
+                              {title.genre && (
+                                <div className="text-sm text-gray-500">
+                                  {title.genre}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {title.filmmaker ? (
+                              <div>
+                                <div>{title.filmmaker.first_name} {title.filmmaker.last_name}</div>
+                                <div className="text-xs text-gray-400">{title.filmmaker.email}</div>
+                              </div>
+                            ) : (
+                              <span className="text-red-500">No filmmaker assigned</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {title.content_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              title.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              title.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {title.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div>
+                              <div>${((title.previous_gross_amount || 0) + (title.revenue_total || 0)).toLocaleString()}</div>
+                              <div className="text-xs text-gray-400">
+                                Net: ${((title.previous_net_revenue || 0) + (title.net_revenue || 0)).toLocaleString()}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {title.title_distribution_settings && title.title_distribution_settings.length > 0 ? (
+                              <div>
+                                <div>Company: {title.title_distribution_settings[0].company_percentage}%</div>
+                                <div className="text-xs text-gray-400">
+                                  Filmmaker: {title.title_distribution_settings[0].filmmaker_percentage}%
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-yellow-600">25% / 75%</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleEditTitle(title)}
+                                className="flex items-center space-x-1"
+                              >
+                                <Edit className="h-3 w-3" />
+                                <span>Edit</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => handleDeleteTitle(title.id)}
+                                className="flex items-center space-x-1"
+                              >
+                                <X className="h-3 w-3" />
+                                <span>Delete</span>
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No titles yet</h3>
+                  <p className="text-gray-500 mb-4">
+                    Start by adding your first title to the platform
+                  </p>
+                  <Button onClick={() => setShowAddTitle(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Title
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
       )}
     </div>
+      {/* Add Title Modal */}
+      {showAddTitle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Add New Title</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Title Name"
+                    value={newTitle.title_name}
+                    onChange={(e) => setNewTitle({ ...newTitle, title_name: e.target.value })}
+                    placeholder="Enter title name"
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Content Type
+                    </label>
+                    <select
+                      value={newTitle.content_type}
+                      onChange={(e) => setNewTitle({ ...newTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="movie">Movie</option>
+                      <option value="series">Series</option>
+                      <option value="episode">Episode</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filmmaker
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Genre"
+                    value={newTitle.genre}
+                    onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
+                    placeholder="e.g., Drama, Comedy"
+                  />
+                  <Input
+                    label="Release Date"
+                    type="date"
+                    value={newTitle.release_date}
+                    onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
+                  />
+                </div>
+                  </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input
+                    label="Duration (minutes)"
+                    type="number"
+                    value={newTitle.duration_minutes}
+                    onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
+                    placeholder="120"
+                  />
+                  <Input
+                    label="Rating"
+                    value={newTitle.rating}
+                    onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
+                    placeholder="PG-13, R, etc."
+                  />
+                  <Input
+                    label="Company Distribution %"
+                    type="number"
+                    value={newTitle.distribution_percentage}
+                    onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
+                    placeholder="25"
+                  />
+                </div>
+                  <select
+                <Input
+                  label="Description"
+                  value={newTitle.description}
+                  onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
+                  placeholder="Brief description of the title"
+                />
+                    value={newTitle.filmmaker_id}
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data (Optional)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Previous Gross Amount"
+                      type="number"
+                      value={newTitle.previous_gross_amount}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_gross_amount: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Expenses"
+                      type="number"
+                      value={newTitle.previous_expenses}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_expenses: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Distribution Fee"
+                      type="number"
+                      value={newTitle.previous_distribution_fee}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_distribution_fee: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Net Revenue"
+                      type="number"
+                      value={newTitle.previous_net_revenue}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_net_revenue: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Amount Paid"
+                      type="number"
+                      value={newTitle.previous_amount_paid}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_amount_paid: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Balance Due"
+                      type="number"
+                      value={newTitle.previous_balance_due}
+                      onChange={(e) => setNewTitle({ ...newTitle, previous_balance_due: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+                    onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddTitle(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateTitle}>
+                  Create Title
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+      {/* Edit Title Modal */}
+      {showEditTitle && editingTitle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Edit Title: {editingTitle.title_name}</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Title Name"
+                    value={editTitle.title_name}
+                    onChange={(e) => setEditTitle({ ...editTitle, title_name: e.target.value })}
+                    placeholder="Enter title name"
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Content Type
+                    </label>
+                    <select
+                      value={editTitle.content_type}
+                      onChange={(e) => setEditTitle({ ...editTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="movie">Movie</option>
+                      <option value="series">Series</option>
+                      <option value="episode">Episode</option>
+                    </select>
+                  </div>
+                </div>
+                  >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filmmaker
+                  </label>
+                  <select
+                    value={editTitle.filmmaker_id}
+                    onChange={(e) => setEditTitle({ ...editTitle, filmmaker_id: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a filmmaker</option>
+                    {filmmakers.map((filmmaker) => (
+                      <option key={filmmaker.id} value={filmmaker.id}>
+                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                    <option value="">Select a filmmaker</option>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Genre"
+                    value={editTitle.genre}
+                    onChange={(e) => setEditTitle({ ...editTitle, genre: e.target.value })}
+                    placeholder="e.g., Drama, Comedy"
+                  />
+                  <Input
+                    label="Release Date"
+                    type="date"
+                    value={editTitle.release_date}
+                    onChange={(e) => setEditTitle({ ...editTitle, release_date: e.target.value })}
+                  />
+                </div>
+                    {filmmakers.map((filmmaker) => (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input
+                    label="Duration (minutes)"
+                    type="number"
+                    value={editTitle.duration_minutes}
+                    onChange={(e) => setEditTitle({ ...editTitle, duration_minutes: e.target.value })}
+                    placeholder="120"
+                  />
+                  <Input
+                    label="Rating"
+                    value={editTitle.rating}
+                    onChange={(e) => setEditTitle({ ...editTitle, rating: e.target.value })}
+                    placeholder="PG-13, R, etc."
+                  />
+                  <Input
+                    label="Company Distribution %"
+                    type="number"
+                    value={editTitle.distribution_percentage}
+                    onChange={(e) => setEditTitle({ ...editTitle, distribution_percentage: e.target.value })}
+                    placeholder="25"
+                  />
+                </div>
+                      <option key={filmmaker.id} value={filmmaker.id}>
+                <Input
+                  label="Description"
+                  value={editTitle.description}
+                  onChange={(e) => setEditTitle({ ...editTitle, description: e.target.value })}
+                  placeholder="Brief description of the title"
+                />
+                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                <div className="border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Previous Gross Amount"
+                      type="number"
+                      value={editTitle.previous_gross_amount}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_gross_amount: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Expenses"
+                      type="number"
+                      value={editTitle.previous_expenses}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_expenses: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Distribution Fee"
+                      type="number"
+                      value={editTitle.previous_distribution_fee}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_distribution_fee: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Net Revenue"
+                      type="number"
+                      value={editTitle.previous_net_revenue}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_net_revenue: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Amount Paid"
+                      type="number"
+                      value={editTitle.previous_amount_paid}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_amount_paid: e.target.value })}
+                      placeholder="0.00"
+                    />
+                    <Input
+                      label="Previous Balance Due"
+                      type="number"
+                      value={editTitle.previous_balance_due}
+                      onChange={(e) => setEditTitle({ ...editTitle, previous_balance_due: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+                      </option>
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowEditTitle(false);
+                    setEditingTitle(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateTitle}>
+                  Update Title
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+                    ))}
+      {/* Add Filmmaker Modal */}
+      {showAddFilmmaker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Add New Filmmaker</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Email"
+                  type="email"
+                  value={newFilmmaker.email}
+                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, email: e.target.value })}
+                  placeholder="filmmaker@example.com"
+                />
+                <Input
+                  label="First Name"
+                  value={newFilmmaker.first_name}
+                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, first_name: e.target.value })}
+                  placeholder="John"
+                />
+                <Input
+                  label="Last Name"
+                  value={newFilmmaker.last_name}
+                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, last_name: e.target.value })}
+                  placeholder="Doe"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddFilmmaker(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFilmmaker}>
+                  Create Filmmaker
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+                  </select>
+      {/* Add Payment Modal */}
+      {showAddPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Add New Payment</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <select
+                    value={newPayment.title_id}
+                    onChange={(e) => setNewPayment({ ...newPayment, title_id: e.target.value })}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a title</option>
+                    {titles.map((title) => (
+                      <option key={title.id} value={title.id}>
+                        {title.title_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Input
+                  label="Platform"
+                  value={newPayment.platform}
+                  onChange={(e) => setNewPayment({ ...newPayment, platform: e.target.value })}
+                  placeholder="Netflix, Amazon Prime, etc."
+                />
+                <Input
+                  label="Outlet (Optional)"
+                  value={newPayment.outlet}
+                  onChange={(e) => setNewPayment({ ...newPayment, outlet: e.target.value })}
+                  placeholder="Specific outlet or region"
+                />
+                <Input
+                  label="Payment Date"
+                  type="date"
+                  value={newPayment.payment_date}
+                  onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
+                />
+                <Input
+                  label="Gross Amount"
+                  type="number"
+                  value={newPayment.gross_amount}
+                  onChange={(e) => setNewPayment({ ...newPayment, gross_amount: e.target.value })}
+                  placeholder="1000.00"
+                />
+                <Input
+                  label="Notes (Optional)"
+                  value={newPayment.notes}
+                  onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+                  placeholder="Additional notes about this payment"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowAddPayment(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleAddPayment}>
+                  Add Payment
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+                </div>
   );
 }
