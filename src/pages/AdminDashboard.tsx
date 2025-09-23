@@ -418,8 +418,6 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       )}
-        </>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Financial Performance Chart */}
@@ -639,6 +637,8 @@ export function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Add Filmmaker Modal */}
       {showAddFilmmaker && (
