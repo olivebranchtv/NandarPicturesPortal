@@ -555,7 +555,7 @@ export function AdminDashboard() {
       {activeTab === 'financial' ? (
         <div className="space-y-6">
           <FinancialDashboard userRole="admin" />
-          <PaymentHistoryTable
+          <PaymentHistoryTable 
             streamingPayments={streamingPayments}
             titles={titles}
             filmmakers={filmmakers}
