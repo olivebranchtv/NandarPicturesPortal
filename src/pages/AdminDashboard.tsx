@@ -695,17 +695,6 @@ export function AdminDashboard() {
       setTitles(allTitles);
       const totalUsers = (usersData || []).length;
       const totalTitles = allTitles.length;
-    try {
-      const { error } = await supabase
-        .from('payment_requests')
-        .update({ 
-      console.log('Summary stats calculated:', {
-        totalUsers,
-        totalTitles,
-        pendingRequests,
-        totalRevenue,
-        totalExpenses
-      });
 
           status: 'approved',
           amount_approved: approvedAmount,
@@ -713,6 +702,8 @@ export function AdminDashboard() {
         .eq('id', requestId);
 
       if (error) throw error;
+      
+      console.log('Payment request approved successfully');
 
       console.log('Summary stats calculated:', {
         totalUsers,
