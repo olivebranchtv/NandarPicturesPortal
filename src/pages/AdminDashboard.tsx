@@ -696,7 +696,7 @@ export function AdminDashboard() {
         .from('payment_requests')
         .update({
           status: 'approved',
-          amount_approved: approvedAmount,
+          amount_approved: approvedAmount
         })
         .eq('id', requestId);
 
@@ -1245,7 +1245,6 @@ export function AdminDashboard() {
               </div>
             </div>
           </div>
-
         </div>
       )}
 
