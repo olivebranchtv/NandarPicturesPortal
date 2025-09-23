@@ -54,7 +54,7 @@ export function AdminDashboard() {
     duration_minutes: '',
     rating: '',
     filmmaker_id: '',
-    distribution_percentage: '',
+    distribution_percentage: '20',
     previous_gross_amount: '',
     previous_expenses: '',
     previous_distribution_fee: '',
@@ -269,7 +269,7 @@ export function AdminDashboard() {
         duration_minutes: '',
         rating: '',
         filmmaker_id: '',
-        distribution_percentage: '',
+        distribution_percentage: '20',
         previous_gross_amount: '',
         previous_expenses: '',
         previous_distribution_fee: '',
@@ -603,7 +603,7 @@ export function AdminDashboard() {
 
             {/* Recent Activity */}
             <Card>
-              <CardHeader>
+                        <p className="text-sm text-blue-700 mb-3">Set the revenue split between company and filmmaker. Enter the company percentage (filmmaker gets the remainder).</p>
                 <h3 className="text-lg font-semibold">Recent Activity</h3>
               </CardHeader>
               <CardContent>
@@ -612,11 +612,14 @@ export function AdminDashboard() {
                     <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-900">
-                          Payment Request: ${request.amount_requested.toLocaleString()}
+                          placeholder="Enter percentage (e.g., 20 for 20%)"
+                          required
                         </p>
-                        <p className="text-sm text-gray-500">
-                          {request.filmmaker?.first_name} {request.filmmaker?.last_name} • {new Date(request.requested_at).toLocaleDateString()}
-                        </p>
+                        {editTitleForm.distribution_percentage && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Company: {editTitleForm.distribution_percentage}% | Filmmaker: {100 - Number(editTitleForm.distribution_percentage || 0)}%
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
