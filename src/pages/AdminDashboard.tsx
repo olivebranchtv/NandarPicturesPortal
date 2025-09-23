@@ -581,4 +581,4 @@ export function AdminDashboard() {
             <StatCard
               icon={Clock}
               title="Pending Requests"
-              value={stats.pen
+             value={stats.pendingRequests}
