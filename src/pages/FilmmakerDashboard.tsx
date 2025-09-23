@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Film, DollarSign, Clock, TrendingUp, Plus, BarChart3 } from 'lucide-react';
+import { Film, DollarSign, Clock, TrendingUp, Plus, BarChart3, User, Settings, LogOut } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
@@ -15,8 +16,23 @@ interface FilmmakerStats {
 }
 
 export function FilmmakerDashboard() {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'financial'>('overview');
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileFormData, setProfileFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    paypal_email: '',
+    venmo_username: '',
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
   const [stats, setStats] = useState<FilmmakerStats>({
     totalTitles: 0,
     totalEarned: 0,
@@ -32,6 +48,17 @@ export function FilmmakerDashboard() {
   useEffect(() => {
     if (profile?.id) {
       fetchDashboardData();
+      setProfileFormData({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        email: profile.email || '',
+        address: profile.address || '',
+        city: profile.city || '',
+        state: profile.state || '',
+        zip_code: profile.zip_code || '',
+        paypal_email: profile.paypal_email || '',
+        venmo_username: profile.venmo_username || '',
+      });
     }
   }, [profile]);
 
@@ -255,6 +282,73 @@ export function FilmmakerDashboard() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const handleProfileInputChange = (field: string, value: string) => {
+    setProfileFormData(prev => ({ ...prev, [field]: value }));
+    setProfileError('');
+    setProfileSuccess('');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profile?.id) return;
+
+    setProfileLoading(true);
+    setProfileError('');
+    setProfileSuccess('');
+
+    try {
+      // Update user profile
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          first_name: profileFormData.first_name,
+          last_name: profileFormData.last_name,
+          address: profileFormData.address,
+          city: profileFormData.city,
+          state: profileFormData.state,
+          zip_code: profileFormData.zip_code,
+          paypal_email: profileFormData.paypal_email,
+          venmo_username: profileFormData.venmo_username,
+        })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      // Update email in auth if changed
+      if (profileFormData.email !== profile.email) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: profileFormData.email
+        });
+
+        if (emailError) {
+          setProfileSuccess('Profile updated successfully! Email change requires verification - check your inbox.');
+        } else {
+          setProfileSuccess('Profile updated successfully!');
+        }
+      } else {
+        setProfileSuccess('Profile updated successfully!');
+      }
+
+      // Refresh the page after a short delay to show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      setProfileError(error.message || 'Failed to update profile');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const StatCard = ({ icon: Icon, title, value, color }: any) => (
     <Card>
       <CardContent className="p-6">
@@ -297,29 +391,26 @@ export function FilmmakerDashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Filmmaker Dashboard</h1>
         <div className="flex items-center space-x-4">
-          {/* Tab Navigation */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'overview'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('financial')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'financial'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Financial
-            </button>
-          </div>
+          {/* Profile and Sign Out Buttons */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowProfileModal(true)}
+            className="flex items-center space-x-2"
+          >
+            <Settings className="h-4 w-4" />
+            <span>Edit Profile</span>
+          </Button>
+          
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleSignOut}
+            className="flex items-center space-x-2"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out</span>
+          </Button>
           
           {/* Tab Navigation */}
           <div className="flex bg-gray-100 rounded-lg p-1">
@@ -573,6 +664,168 @@ export function FilmmakerDashboard() {
             </Card>
           )}
         </>
+      )}
+
+      {/* Profile Edit Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center space-x-2">
+                <User className="h-6 w-6 text-blue-600" />
+                <h2 className="text-xl font-semibold text-gray-900">Edit Profile</h2>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowProfileModal(false)}
+                className="flex items-center space-x-1"
+              >
+                <span>×</span>
+              </Button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-6">
+                {/* Personal Information */}
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium flex items-center">
+                      <User className="h-5 w-5 mr-2" />
+                      Personal Information
+                    </h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        label="First Name"
+                        value={profileFormData.first_name}
+                        onChange={(e) => handleProfileInputChange('first_name', e.target.value)}
+                        placeholder="Enter your first name"
+                      />
+                      <Input
+                        label="Last Name"
+                        value={profileFormData.last_name}
+                        onChange={(e) => handleProfileInputChange('last_name', e.target.value)}
+                        placeholder="Enter your last name"
+                      />
+                    </div>
+                    <Input
+                      label="Email Address"
+                      type="email"
+                      value={profileFormData.email}
+                      onChange={(e) => handleProfileInputChange('email', e.target.value)}
+                      placeholder="Enter your email address"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Changing your email will require verification
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Address Information */}
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium flex items-center">
+                      <Film className="h-5 w-5 mr-2" />
+                      Address Information
+                    </h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input
+                      label="Street Address"
+                      value={profileFormData.address}
+                      onChange={(e) => handleProfileInputChange('address', e.target.value)}
+                      placeholder="Enter your street address"
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="City"
+                        value={profileFormData.city}
+                        onChange={(e) => handleProfileInputChange('city', e.target.value)}
+                        placeholder="City"
+                      />
+                      <Input
+                        label="State"
+                        value={profileFormData.state}
+                        onChange={(e) => handleProfileInputChange('state', e.target.value)}
+                        placeholder="State"
+                      />
+                      <Input
+                        label="ZIP Code"
+                        value={profileFormData.zip_code}
+                        onChange={(e) => handleProfileInputChange('zip_code', e.target.value)}
+                        placeholder="ZIP"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Methods */}
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-lg font-medium flex items-center">
+                      <DollarSign className="h-5 w-5 mr-2" />
+                      Payment Methods
+                    </h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Input
+                      label="PayPal Email"
+                      type="email"
+                      value={profileFormData.paypal_email}
+                      onChange={(e) => handleProfileInputChange('paypal_email', e.target.value)}
+                      placeholder="Enter your PayPal email"
+                    />
+                    <Input
+                      label="Venmo Username"
+                      value={profileFormData.venmo_username}
+                      onChange={(e) => handleProfileInputChange('venmo_username', e.target.value)}
+                      placeholder="Enter your Venmo username"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Payment methods are used for revenue distributions and payments
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Status Messages */}
+                {profileError && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-sm text-red-600">{profileError}</p>
+                  </div>
+                )}
+
+                {profileSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                    <p className="text-sm text-green-600">{profileSuccess}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 flex-shrink-0">
+              <Button
+                variant="secondary"
+                onClick={() => setShowProfileModal(false)}
+                disabled={profileLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveProfile}
+                disabled={profileLoading}
+                className="flex items-center space-x-2"
+              >
+                <Settings className="h-4 w-4" />
+                <span>{profileLoading ? 'Saving...' : 'Save Changes'}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
