@@ -7,7 +7,6 @@ import { Input } from '../components/ui/Input';
 import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
-import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface AdminStats {
   totalUsers: number;
