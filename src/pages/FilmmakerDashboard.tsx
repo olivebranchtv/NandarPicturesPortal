@@ -354,6 +354,36 @@ export function FilmmakerDashboard() {
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
         <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
+      ) : (
+        <>
+          {/* Overview Tab Content - All existing functionality */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              icon={Film}
+              title="My Titles"
+              value={stats.totalTitles}
+              color="bg-blue-600"
+            />
+            <StatCard
+              icon={DollarSign}
+              title="Total Earned"
+              value={`$${stats.totalEarned.toLocaleString()}`}
+              color="bg-green-600"
+            />
+            <StatCard
+              icon={TrendingUp}
+              title="Total Paid"
+              value={`$${stats.totalPaid.toLocaleString()}`}
+              color="bg-purple-600"
+            />
+            <StatCard
+              icon={Clock}
+              title="Available Balance"
+              value={`$${stats.availableBalance.toLocaleString()}`}
+              color="bg-orange-600"
+            />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue Chart */}
             <Card>
