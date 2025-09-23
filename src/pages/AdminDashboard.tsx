@@ -74,6 +74,7 @@ export function AdminDashboard() {
   const [filmmakers, setFilmmakers] = useState<User[]>([]);
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
+  const [allContent, setAllContent] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Financial performance state
@@ -133,6 +134,8 @@ export function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      console.log('Admin Dashboard: Fetching all data...');
+      
       await Promise.all([
         fetchTitles(),
         fetchFilmmakers(),
@@ -575,6 +578,7 @@ export function AdminDashboard() {
         .select('*')
         .eq('id', authData.user.id)
         .single();
+      console.log('Users query result:', { usersData, usersError });
 
       if (verifyError) {
         console.error('User profile not found after creation:', verifyError);
@@ -625,6 +629,7 @@ export function AdminDashboard() {
           distribution_percentage: parseFloat(newPayment.distribution_percentage),
           notes: newPayment.notes || null,
         });
+      console.log('Payment requests query result:', { requestsData, requestsError });
 
       if (error) throw error;
 
@@ -637,18 +642,12 @@ export function AdminDashboard() {
         gross_amount: '',
         distribution_percentage: '50',
         notes: '',
+      console.log('Streaming payments query result:', { paymentsData, paymentsError });
       });
       setShowAddPayment(false);
       fetchDashboardData();
-      alert('Payment added successfully!');
-    } catch (error) {
-      console.error('Error adding payment:', error);
-      alert('Error adding payment. Please try again.');
-    }
-  };
-
   const handleApproveTitle = async (titleId: string) => {
-    if (!supabase) return;
+      const historicalPayments = allTitles
 
     try {
       const { error } = await supabase
@@ -659,6 +658,8 @@ export function AdminDashboard() {
       if (error) throw error;
 
       fetchDashboardData();
+      console.log('Historical payments processed:', historicalPayments);
+
       alert('Title approved successfully!');
     } catch (error) {
       console.error('Error approving title:', error);
@@ -669,11 +670,13 @@ export function AdminDashboard() {
   const handleRejectTitle = async (titleId: string) => {
     if (!supabase) return;
 
+      console.log('Current payments processed:', currentPayments);
+
     try {
       const { error } = await supabase
         .from('content')
         .update({ status: 'rejected' })
-        .eq('id', titleId);
+      const expenseEntries = allTitles
 
       if (error) throw error;
 
@@ -685,13 +688,25 @@ export function AdminDashboard() {
     }
   };
 
+      console.log('Complete financial data:', completeFinancialData);
+      console.log('Content query result:', { contentData, contentError });
   const handleApprovePayment = async (requestId: string, approvedAmount: number) => {
-    if (!supabase) return;
-
+      const allTitles = contentData || [];
+      setTitles(allTitles);
+      const totalUsers = (usersData || []).length;
+      const totalTitles = allTitles.length;
     try {
       const { error } = await supabase
         .from('payment_requests')
         .update({ 
+      console.log('Summary stats calculated:', {
+        totalUsers,
+        totalTitles,
+        pendingRequests,
+        totalRevenue,
+        totalExpenses
+      });
+
           status: 'approved',
           amount_approved: approvedAmount,
         })
