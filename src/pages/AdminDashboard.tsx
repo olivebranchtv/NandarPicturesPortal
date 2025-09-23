@@ -1,121 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, DollarSign, Film, TrendingUp, Plus, Check, X, Edit2, Trash2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Users, Film, DollarSign, Clock, Plus, Check, X, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { supabase, Content, User, PaymentRequest, StreamingPayment } from '../lib/supabase';
+import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
 interface AdminStats {
-  totalFilmmakers: number;
+  totalUsers: number;
   totalTitles: number;
   totalRevenue: number;
-  pendingApprovals: number;
+  pendingRequests: number;
 }
 
-interface FinancialData {
-  month: string;
-  revenue: number;
-  expenses: number;
-  net: number;
-}
-
-interface FinancialSummary {
-  totalRevenue: number;
-  totalExpenses: number;
-  netIncome: number;
-}
-
-interface NewTitleForm {
-  title_name: string;
-  content_type: 'movie' | 'series' | 'episode';
-  filmmaker_id: string;
-  description: string;
-  genre: string;
-  release_date: string;
-  duration_minutes: string;
-  rating: string;
-  previous_gross_amount: string;
-  previous_expenses: string;
-  previous_distribution_fee: string;
-  previous_net_revenue: string;
-  previous_amount_paid: string;
-  previous_balance_due: string;
-  distribution_percentage: string;
-}
-
-interface NewFilmmakerForm {
+interface CreateFilmmakerData {
   email: string;
   first_name: string;
   last_name: string;
 }
 
-interface NewPaymentForm {
-  title_id: string;
-  platform: string;
-  outlet: string;
-  payment_date: string;
-  gross_amount: string;
-  distribution_percentage: string;
-  notes: string;
-}
-
 export function AdminDashboard() {
   const { profile } = useAuth();
   const [stats, setStats] = useState<AdminStats>({
-    totalFilmmakers: 0,
+    totalUsers: 0,
     totalTitles: 0,
     totalRevenue: 0,
-    pendingApprovals: 0,
+    pendingRequests: 0,
   });
-  
-  const [titles, setTitles] = useState<Content[]>([]);
   const [filmmakers, setFilmmakers] = useState<User[]>([]);
+  const [titles, setTitles] = useState<Content[]>([]);
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
-  const [allContent, setAllContent] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Financial performance state
-  const [financialData, setFinancialData] = useState<FinancialData[]>([]);
-  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
-    totalRevenue: 0,
-    totalExpenses: 0,
-    netIncome: 0,
-  });
-  const [selectedTitleForFinancials, setSelectedTitleForFinancials] = useState<string>('');
-  
-  // Form states
-  const [showAddTitle, setShowAddTitle] = useState(false);
   const [showAddFilmmaker, setShowAddFilmmaker] = useState(false);
+  const [showAddTitle, setShowAddTitle] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
-  
-  const [newTitle, setNewTitle] = useState<NewTitleForm>({
+  const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
+    email: '',
+    first_name: '',
+    last_name: '',
+  });
+  const [newTitle, setNewTitle] = useState({
     title_name: '',
-    content_type: 'movie',
-    filmmaker_id: '',
+    content_type: 'movie' as 'movie' | 'series' | 'episode',
     description: '',
     genre: '',
     release_date: '',
     duration_minutes: '',
     rating: '',
-    previous_gross_amount: '',
-    previous_expenses: '',
-    previous_distribution_fee: '',
-    previous_net_revenue: '',
-    previous_amount_paid: '',
-    previous_balance_due: '',
-    distribution_percentage: '20',
+    filmmaker_id: '',
   });
-  
-  const [newFilmmaker, setNewFilmmaker] = useState<NewFilmmakerForm>({
-    email: '',
-    first_name: '',
-    last_name: '',
-  });
-  
-  const [newPayment, setNewPayment] = useState<NewPaymentForm>({
+  const [newPayment, setNewPayment] = useState({
     title_id: '',
     platform: '',
     outlet: '',
@@ -126,24 +62,82 @@ export function AdminDashboard() {
   });
 
   useEffect(() => {
-    fetchDashboardData();
-    // Set up auto-refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (profile?.role === 'admin') {
+      fetchDashboardData();
+    }
+  }, [profile]);
 
   const fetchDashboardData = async () => {
     try {
-      console.log('Admin Dashboard: Fetching all data...');
+      console.log('Fetching admin dashboard data...');
       
-      await Promise.all([
-        fetchTitles(),
-        fetchFilmmakers(),
-        fetchPaymentRequests(),
-        fetchStreamingPayments(),
-        fetchFinancialData(),
-      ]);
-      calculateStats();
+      // Fetch all users
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      console.log('Users query result:', { usersData, usersError });
+      if (usersError) throw usersError;
+
+      // Filter filmmakers
+      const filmmakersData = usersData?.filter(user => user.role === 'filmmaker') || [];
+      setFilmmakers(filmmakersData);
+      console.log('Filmmakers found:', filmmakersData.length);
+
+      // Fetch all content/titles
+      const { data: titlesData, error: titlesError } = await supabase
+        .from('content')
+        .select(`
+          *,
+          filmmaker:users!content_filmmaker_id_fkey(first_name, last_name, email)
+        `)
+        .order('created_at', { ascending: false });
+
+      console.log('Titles query result:', { titlesData, titlesError });
+      if (titlesError) throw titlesError;
+      setTitles(titlesData || []);
+
+      // Fetch payment requests with filmmaker info
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('payment_requests')
+        .select(`
+          *,
+          filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email)
+        `)
+        .order('requested_at', { ascending: false });
+
+      console.log('Payment requests query result:', { requestsData, requestsError });
+      if (requestsError) throw requestsError;
+      setPaymentRequests(requestsData || []);
+
+      // Fetch streaming payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('streaming_payments')
+        .select(`
+          *,
+          content!inner(title_name, filmmaker_id)
+        `)
+        .order('payment_date', { ascending: false });
+
+      console.log('Streaming payments query result:', { paymentsData, paymentsError });
+      if (paymentsError) throw paymentsError;
+      setStreamingPayments(paymentsData || []);
+
+      // Calculate stats
+      const totalRevenue = (paymentsData || []).reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
+      const pendingRequests = (requestsData || []).filter(req => req.status === 'pending').length;
+
+      const calculatedStats = {
+        totalUsers: filmmakersData.length,
+        totalTitles: titlesData?.length || 0,
+        totalRevenue,
+        pendingRequests,
+      };
+
+      console.log('Calculated stats:', calculatedStats);
+      setStats(calculatedStats);
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -151,470 +145,88 @@ export function AdminDashboard() {
     }
   };
 
-  const fetchTitles = async () => {
-    if (!supabase) return;
-    
-    const { data, error } = await supabase
-      .from('content')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching titles:', error);
+  const handleCreateFilmmaker = async () => {
+    if (!newFilmmaker.email || !newFilmmaker.first_name || !newFilmmaker.last_name) {
+      alert('Please fill in all required fields');
       return;
     }
-    
-    setTitles(data || []);
-  };
 
-  const fetchFilmmakers = async () => {
-    if (!supabase) return;
-    
-    console.log('🎬 Fetching filmmakers from users table...');
-    
     try {
-      // Direct query to fetch all users
-      const { data: allUsers, error } = await supabase
-        .from('users')
-        .select('id, email, first_name, last_name, role, created_at')
-        .order('created_at', { ascending: false });
+      console.log('Creating filmmaker:', newFilmmaker);
       
-      console.log('📊 Raw users data from database:', allUsers);
-      console.log('❌ Database error (if any):', error);
-      
-      if (error) {
-        console.error('💥 Failed to fetch users:', error);
-        setFilmmakers([]);
-        return;
-      }
-      
-      if (!allUsers || !Array.isArray(allUsers)) {
-        console.error('❌ Invalid data format received:', allUsers);
-        setFilmmakers([]);
-        return;
-      }
-      
-      console.log('📈 Total users found:', allUsers.length);
-      
-      // Log all users with their roles
-      console.log('👥 All users in database:');
-      allUsers.forEach((user, index) => {
-        console.log(`  ${index + 1}. ${user.first_name || 'No first name'} ${user.last_name || 'No last name'} (${user.email}) - Role: "${user.role}" - ID: ${user.id}`);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-filmmaker`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify(newFilmmaker),
       });
-      
-      // Filter users where role = 'filmmaker' in JavaScript
-      const filmmakers = allUsers.filter(user => {
-        const isFilmmaker = user.role === 'filmmaker';
-        console.log(`🎭 Checking user ${user.email}: role="${user.role}" -> isFilmmaker=${isFilmmaker}`);
-        return isFilmmaker;
-      });
-      
-      console.log('🎬 Filtered filmmakers (role = "filmmaker"):', filmmakers);
-      console.log('📊 Number of filmmakers found:', filmmakers.length);
-      
-      if (filmmakers.length > 0) {
-        console.log('✅ Filmmaker details:');
-        filmmakers.forEach((filmmaker, index) => {
-          console.log(`  ${index + 1}. ${filmmaker.first_name || 'No name'} ${filmmaker.last_name || ''} (${filmmaker.email}) - ID: ${filmmaker.id}`);
-        });
-      } else {
-        console.log('⚠️ No filmmakers found after filtering');
-        console.log('🔍 This could mean:');
-        console.log('   - No users have role="filmmaker" (check database)');
-        console.log('   - RLS policies are blocking access');
-        console.log('   - The role field contains different values');
+
+      const result = await response.json();
+      console.log('Create filmmaker result:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create filmmaker');
       }
-      
-      // Set the filmmakers in state to populate dropdown
-      setFilmmakers(filmmakers);
-      console.log('✅ Filmmakers state updated successfully');
-      
+
+      alert(`Filmmaker created successfully! Temporary password: ${result.temporary_password}`);
+      setNewFilmmaker({ email: '', first_name: '', last_name: '' });
+      setShowAddFilmmaker(false);
+      fetchDashboardData();
     } catch (error) {
-      console.error('💥 Unexpected error fetching filmmakers:', error);
-      console.error('🔍 Error stack:', error.stack);
-      setFilmmakers([]);
+      console.error('Error creating filmmaker:', error);
+      alert(`Error creating filmmaker: ${error.message}`);
     }
   };
 
-  const fetchPaymentRequests = async () => {
-    if (!supabase) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('payment_requests')
-        .select(`
-          *,
-          filmmaker:filmmaker_id (
-            id,
-            email,
-            first_name,
-            last_name
-          )
-        `)
-        .order('requested_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching payment requests:', error);
-        return;
-      }
-      
-      setPaymentRequests(data || []);
-    } catch (error) {
-      console.error('Unexpected error fetching payment requests:', error);
-      setPaymentRequests([]);
+  const handleCreateTitle = async () => {
+    if (!newTitle.title_name || !newTitle.filmmaker_id) {
+      alert('Please fill in title name and select a filmmaker');
+      return;
     }
-  };
-
-  const fetchStreamingPayments = async () => {
-    if (!supabase) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('streaming_payments')
-        .select(`
-          *,
-          content:title_id (
-            id,
-            title_name
-          )
-        `)
-        .order('payment_date', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching streaming payments:', error);
-        return;
-      }
-      
-      setStreamingPayments(data || []);
-    } catch (error) {
-      console.error('Unexpected error fetching streaming payments:', error);
-      setStreamingPayments([]);
-    }
-  };
-
-  const fetchFinancialData = async () => {
-    if (!supabase) return;
-    
-    try {
-      // Fetch all content with historical data
-      const { data: allContent, error: contentError } = await supabase
-        .from('content')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (contentError) {
-        console.error('Error fetching content for financial data:', contentError);
-        return;
-      }
-
-      // Fetch streaming payments with content info
-      const { data: streamingPayments, error: paymentsError } = await supabase
-        .from('streaming_payments')
-        .select(`
-          *,
-          content:title_id (
-            id,
-            title_name,
-            expenses_total
-          )
-        `)
-        .order('payment_date', { ascending: true });
-
-      if (paymentsError) {
-        console.error('Error fetching streaming payments:', paymentsError);
-        return;
-      }
-
-      // Process data by month
-      const monthlyData: { [key: string]: { revenue: number; expenses: number } } = {};
-      let totalRevenue = 0;
-      let totalExpenses = 0;
-
-      // Process historical data from content table
-      allContent?.forEach((content: any) => {
-        // Filter by selected title if one is chosen
-        if (selectedTitleForFinancials && content.id !== selectedTitleForFinancials) {
-          return;
-        }
-
-        // Add historical data if it exists
-        if (content.previous_gross_amount > 0 || content.previous_expenses > 0) {
-          // Use creation date for historical data or a default historical month
-          const date = new Date(content.created_at);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          
-          if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = { revenue: 0, expenses: 0 };
-          }
-          
-          const historicalRevenue = content.previous_gross_amount || 0;
-          const historicalExpenses = content.previous_expenses || 0;
-          
-          monthlyData[monthKey].revenue += historicalRevenue;
-          monthlyData[monthKey].expenses += historicalExpenses;
-          
-          totalRevenue += historicalRevenue;
-          totalExpenses += historicalExpenses;
-        }
-
-        // Add current expenses from content table
-        if (content.expenses_total > 0) {
-          const date = new Date(content.updated_at || content.created_at);
-          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          
-          if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = { revenue: 0, expenses: 0 };
-          }
-          
-          monthlyData[monthKey].expenses += content.expenses_total;
-          totalExpenses += content.expenses_total;
-        }
-      });
-
-      // Process streaming payments
-      streamingPayments?.forEach((payment: any) => {
-        // Filter by selected title if one is chosen
-        if (selectedTitleForFinancials && payment.title_id !== selectedTitleForFinancials) {
-          return;
-        }
-
-        const date = new Date(payment.payment_date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!monthlyData[monthKey]) {
-          monthlyData[monthKey] = { revenue: 0, expenses: 0 };
-        }
-        
-        const revenue = payment.gross_amount || 0;
-        monthlyData[monthKey].revenue += revenue;
-        totalRevenue += revenue;
-      });
-
-      // Convert to array and sort by month
-      const chartData: FinancialData[] = Object.entries(monthlyData)
-        .map(([month, data]) => ({
-          month: new Date(month + '-01').toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short' 
-          }),
-          revenue: data.revenue,
-          expenses: data.expenses,
-          net: data.revenue - data.expenses,
-        }))
-        .sort((a, b) => new Date(a.month + ' 1').getTime() - new Date(b.month + ' 1').getTime());
-
-      setFinancialData(chartData);
-      setFinancialSummary({
-        totalRevenue,
-        totalExpenses,
-        netIncome: totalRevenue - totalExpenses,
-      });
-    } catch (error) {
-      console.error('Unexpected error fetching financial data:', error);
-    }
-  };
-
-  // Refetch financial data when title filter changes
-  useEffect(() => {
-    if (!loading) {
-      fetchFinancialData();
-    }
-  }, [selectedTitleForFinancials]);
-
-  const calculateStats = () => {
-    const totalFilmmakers = filmmakers.length;
-    const totalTitles = titles.length;
-    const pendingApprovals = titles.filter(t => t.status === 'pending').length;
-    const totalRevenue = streamingPayments.reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
-    
-    setStats({
-      totalFilmmakers,
-      totalTitles,
-      totalRevenue,
-      pendingApprovals,
-    });
-  };
-
-  // Recalculate stats whenever data changes
-  useEffect(() => {
-    calculateStats();
-  }, [filmmakers, titles, streamingPayments]);
-
-
-
-  const handleAddTitle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
 
     try {
-      const { data: insertedTitle, error } = await supabase
+      const { error } = await supabase
         .from('content')
         .insert({
           title_name: newTitle.title_name,
           content_type: newTitle.content_type,
-          filmmaker_id: newTitle.filmmaker_id,
           description: newTitle.description || null,
           genre: newTitle.genre || null,
           release_date: newTitle.release_date || null,
           duration_minutes: newTitle.duration_minutes ? parseInt(newTitle.duration_minutes) : null,
           rating: newTitle.rating || null,
-          status: 'pending',
-          previous_gross_amount: newTitle.previous_gross_amount ? parseFloat(newTitle.previous_gross_amount) : 0,
-          previous_expenses: newTitle.previous_expenses ? parseFloat(newTitle.previous_expenses) : 0,
-          previous_distribution_fee: newTitle.previous_distribution_fee ? parseFloat(newTitle.previous_distribution_fee) : 0,
-          previous_net_revenue: newTitle.previous_net_revenue ? parseFloat(newTitle.previous_net_revenue) : 0,
-          previous_amount_paid: newTitle.previous_amount_paid ? parseFloat(newTitle.previous_amount_paid) : 0,
-          previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
-        })
-        .select()
-        .single();
+          filmmaker_id: newTitle.filmmaker_id,
+          status: 'approved', // Admin-created titles are auto-approved
+        });
 
       if (error) throw error;
 
-      // Create distribution settings for the title
-      if (insertedTitle) {
-        const companyPercentage = parseFloat(newTitle.distribution_percentage);
-        const filmmakerPercentage = 100 - companyPercentage;
-        
-        const { error: distributionError } = await supabase
-          .from('title_distribution_settings')
-          .insert({
-            title_id: insertedTitle.id,
-            company_percentage: companyPercentage,
-            filmmaker_percentage: filmmakerPercentage,
-          });
-
-        if (distributionError) {
-          console.error('Error creating distribution settings:', distributionError);
-          // Don't throw here as the title was created successfully
-        }
-      }
-
-      // Reset form and refresh data
+      alert('Title created successfully!');
       setNewTitle({
         title_name: '',
         content_type: 'movie',
-        filmmaker_id: '',
         description: '',
         genre: '',
         release_date: '',
         duration_minutes: '',
         rating: '',
-        previous_gross_amount: '',
-        previous_expenses: '',
-        previous_distribution_fee: '',
-        previous_net_revenue: '',
-        previous_amount_paid: '',
-        previous_balance_due: '',
-        distribution_percentage: '20',
+        filmmaker_id: '',
       });
       setShowAddTitle(false);
       fetchDashboardData();
-      alert('Title added successfully!');
     } catch (error) {
-      console.error('Error adding title:', error);
-      alert('Error adding title. Please try again.');
+      console.error('Error creating title:', error);
+      alert('Error creating title. Please try again.');
     }
   };
 
-  const handleOpenAddTitle = () => {
-    console.log('Opening Add Title modal, fetching filmmakers...');
-    setShowAddTitle(true);
-    fetchFilmmakers(); // Fetch filmmakers when modal opens
-  };
-
-  const handleAddFilmmaker = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
-
-    try {
-      // Check if user already exists
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select('id, email, role, first_name, last_name')
-        .eq('email', newFilmmaker.email)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw new Error('Error checking existing user');
-      }
-
-      if (existingUser) {
-        alert(`User already exists!\n\nEmail: ${existingUser.email}\nName: ${existingUser.first_name || ''} ${existingUser.last_name || ''}\nRole: ${existingUser.role}\n\nYou cannot create a duplicate user.`);
-        return;
-      }
-
-      // Generate a temporary password
-      const tempPassword = 'TempPass123!';
-
-      // Create the auth user first
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newFilmmaker.email,
-        password: tempPassword,
-        options: {
-          data: {
-            first_name: newFilmmaker.first_name,
-            last_name: newFilmmaker.last_name,
-            role: 'filmmaker'
-          }
-        }
-      });
-
-      if (authError) {
-        throw new Error(`Failed to create auth user: ${authError.message}`);
-      }
-
-      if (!authData.user) {
-        throw new Error('No user returned from auth creation');
-      }
-
-      // The user profile should be automatically created by the trigger
-      // Wait a moment for the trigger to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Verify the user was created in the users table
-      const { data: createdUser, error: verifyError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (verifyError) {
-        console.error('User profile not found after creation:', verifyError);
-        // Try to create the profile manually
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: newFilmmaker.email,
-            first_name: newFilmmaker.first_name,
-            last_name: newFilmmaker.last_name,
-            role: 'filmmaker'
-          });
-
-        if (insertError) {
-          throw new Error(`Failed to create user profile: ${insertError.message}`);
-        }
-      }
-
-      // Reset form and refresh data
-      setNewFilmmaker({
-        email: '',
-        first_name: '',
-        last_name: '',
-      });
-      setShowAddFilmmaker(false);
-      fetchDashboardData();
-      alert(`Filmmaker created successfully!\n\nEmail: ${newFilmmaker.email}\nTemporary password: ${tempPassword}\n\nPlease share these credentials with the filmmaker.`);
-    } catch (error) {
-      console.error('Error adding filmmaker:', error);
-      alert(`Error adding filmmaker: ${error.message}`);
+  const handleAddPayment = async () => {
+    if (!newPayment.title_id || !newPayment.platform || !newPayment.payment_date || !newPayment.gross_amount) {
+      alert('Please fill in all required fields');
+      return;
     }
-  };
-
-  const handleAddPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supabase) return;
 
     try {
       const { error } = await supabase
@@ -631,7 +243,7 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      // Reset form and refresh data
+      alert('Payment added successfully!');
       setNewPayment({
         title_id: '',
         platform: '',
@@ -643,54 +255,13 @@ export function AdminDashboard() {
       });
       setShowAddPayment(false);
       fetchDashboardData();
-      alert('Payment added successfully!');
     } catch (error) {
       console.error('Error adding payment:', error);
       alert('Error adding payment. Please try again.');
     }
   };
 
-  const handleApproveTitle = async (titleId: string) => {
-    if (!supabase) return;
-
-    try {
-      const { error } = await supabase
-        .from('content')
-        .update({ status: 'approved' })
-        .eq('id', titleId);
-
-      if (error) throw error;
-
-      fetchDashboardData();
-      alert('Title approved successfully!');
-    } catch (error) {
-      console.error('Error approving title:', error);
-      alert('Error approving title. Please try again.');
-    }
-  };
-
-  const handleRejectTitle = async (titleId: string) => {
-    if (!supabase) return;
-
-    try {
-      const { error } = await supabase
-        .from('content')
-        .update({ status: 'rejected' })
-        .eq('id', titleId);
-
-      if (error) throw error;
-
-      fetchDashboardData();
-      alert('Title rejected successfully!');
-    } catch (error) {
-      console.error('Error rejecting title:', error);
-      alert('Error rejecting title. Please try again.');
-    }
-  };
-
   const handleApprovePayment = async (requestId: string, approvedAmount: number) => {
-    if (!supabase) return;
-
     try {
       const { error } = await supabase
         .from('payment_requests')
@@ -702,8 +273,8 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      fetchDashboardData();
       alert('Payment request approved!');
+      fetchDashboardData();
     } catch (error) {
       console.error('Error approving payment:', error);
       alert('Error approving payment request. Please try again.');
@@ -734,17 +305,22 @@ export function AdminDashboard() {
     );
   }
 
-  const chartData = streamingPayments.slice(0, 5).map(payment => ({
-    title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
-    amount: payment.gross_amount || 0,
-  }));
+  // Create chart data
+  const chartData = streamingPayments
+    .slice(0, 6)
+    .map(payment => ({
+      title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
+      revenue: payment.gross_amount || 0,
+      expenses: (payment.gross_amount || 0) * 0.3, // Estimated expenses
+      net: payment.net_amount || 0,
+    }));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="flex space-x-2">
-          <Button onClick={handleOpenAddTitle}>
+        <div className="flex space-x-3">
+          <Button onClick={() => setShowAddTitle(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Title
           </Button>
@@ -764,7 +340,7 @@ export function AdminDashboard() {
         <StatCard
           icon={Users}
           title="Total Filmmakers"
-          value={stats.totalFilmmakers}
+          value={stats.totalUsers}
           color="bg-blue-600"
         />
         <StatCard
@@ -780,183 +356,109 @@ export function AdminDashboard() {
           color="bg-purple-600"
         />
         <StatCard
-          icon={TrendingUp}
+          icon={Clock}
           title="Pending Approvals"
-          value={stats.pendingApprovals}
+          value={stats.pendingRequests}
           color="bg-orange-600"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Financial Performance Section */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2" />
-                  Financial Performance
-                </h3>
-                <div className="flex items-center space-x-4">
-                  <select
-                    value={selectedTitleForFinancials}
-                    onChange={(e) => setSelectedTitleForFinancials(e.target.value)}
-                    className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Titles</option>
-                    {titles.map((title) => (
-                      <option key={title.id} value={title.id}>
-                        {title.title_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              {/* Financial Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-green-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    ${financialSummary.totalRevenue.toLocaleString()}
-                  </p>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-red-600">Total Expenses</p>
-                  <p className="text-2xl font-bold text-red-900">
-                    ${financialSummary.totalExpenses.toLocaleString()}
-                  </p>
-                </div>
-                <div className={`p-4 rounded-lg ${
-                  financialSummary.netIncome >= 0 ? 'bg-blue-50' : 'bg-orange-50'
-                }`}>
-                  <p className={`text-sm font-medium ${
-                    financialSummary.netIncome >= 0 ? 'text-blue-600' : 'text-orange-600'
-                  }`}>
-                    Net Income
-                  </p>
-                  <p className={`text-2xl font-bold ${
-                    financialSummary.netIncome >= 0 ? 'text-blue-900' : 'text-orange-900'
-                  }`}>
-                    ${financialSummary.netIncome.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {financialData.length > 0 ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={financialData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="month" 
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                      />
-                      <Tooltip 
-                        formatter={(value, name) => [
-                          `$${Number(value).toLocaleString()}`, 
-                          name === 'revenue' ? 'Revenue' : 
-                          name === 'expenses' ? 'Expenses' : 'Net Income'
-                        ]}
-                        labelFormatter={(label) => `Month: ${label}`}
-                      />
-                      <Bar dataKey="revenue" fill="#10B981" name="revenue" />
-                      <Bar dataKey="expenses" fill="#EF4444" name="expenses" />
-                      <Bar dataKey="net" fill="#3B82F6" name="net" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-64 text-gray-500">
-                  <div className="text-center">
-                    <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <p>No financial data available</p>
-                    <p className="text-sm">
-                      {selectedTitleForFinancials 
-                        ? 'No payments found for selected title' 
-                        : 'Add payments to see financial performance'
-                      }
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Revenue Chart */}
+      {/* Debug Information */}
+      {process.env.NODE_ENV === 'development' && (
         <Card>
           <CardHeader>
-            <h3 className="text-lg font-semibold flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2" />
-              Recent Payments
-            </h3>
+            <h3 className="text-lg font-semibold text-red-600">Debug Information</h3>
           </CardHeader>
           <CardContent>
-            {streamingPayments.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p><strong>Filmmakers:</strong> {filmmakers.length}</p>
+                <p><strong>Titles:</strong> {titles.length}</p>
+                <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
+                <p><strong>Streaming Payments:</strong> {streamingPayments.length}</p>
+              </div>
+              <div>
+                <p><strong>Sample Filmmaker:</strong> {filmmakers[0]?.email || 'None'}</p>
+                <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
+                <p><strong>Admin Role:</strong> {profile?.role}</p>
+                <p><strong>Admin ID:</strong> {profile?.id}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Financial Performance Chart */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Financial Performance</h3>
+          </CardHeader>
+          <CardContent>
+            {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="title" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Amount']} />
-                  <Bar dataKey="amount" fill="#3B82F6" />
+                  <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
+                  <Bar dataKey="revenue" fill="#10B981" name="Total Revenue" />
+                  <Bar dataKey="expenses" fill="#EF4444" name="Total Expenses" />
+                  <Bar dataKey="net" fill="#3B82F6" name="Net Income" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-64 text-gray-500">
                 <div className="text-center">
                   <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No payments recorded yet</p>
+                  <p>No financial data available</p>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Pending Approvals */}
+        {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <h3 className="text-lg font-semibold">Pending Title Approvals</h3>
+            <h3 className="text-lg font-semibold">Recent Activity</h3>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {titles.filter(title => title.status === 'pending').map((title) => (
-                <div key={title.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="space-y-3">
+              {paymentRequests.slice(0, 5).map((request) => (
+                <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-gray-900">{title.title_name}</p>
-                    <p className="text-sm text-gray-500">{title.content_type}</p>
+                    <p className="font-medium text-gray-900">
+                      Payment Request: ${request.amount_requested.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {request.filmmaker?.first_name} {request.filmmaker?.last_name} • {new Date(request.requested_at).toLocaleDateString()}
+                    </p>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleApproveTitle(title.id)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => handleRejectTitle(title.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                  <div className="flex items-center space-x-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {request.status}
+                    </span>
+                    {request.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprovePayment(request.id, request.amount_requested)}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
-              {titles.filter(title => title.status === 'pending').length === 0 && (
+              {paymentRequests.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No pending approvals</p>
+                  <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p>No recent activity</p>
                 </div>
               )}
             </div>
@@ -964,69 +466,129 @@ export function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Payment Requests */}
+      {/* Filmmakers Table */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Payment Requests</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">All Filmmakers</h3>
+            <div className="text-sm text-gray-500">
+              {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {paymentRequests.length > 0 ? (
+          {filmmakers.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Filmmaker
+                      Name
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Titles
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Joined
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filmmakers.map((filmmaker) => {
+                    const filmmakertitles = titles.filter(title => title.filmmaker_id === filmmaker.id);
+                    return (
+                      <tr key={filmmaker.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {filmmaker.first_name} {filmmaker.last_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {filmmaker.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {filmmakertitles.length}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(filmmaker.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No filmmakers yet</h3>
+              <p className="text-gray-500">
+                Add your first filmmaker to get started
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Titles Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">All Titles</h3>
+            <div className="text-sm text-gray-500">
+              {titles.length} title{titles.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {titles.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Title
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Filmmaker
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
+                      Revenue
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {paymentRequests.map((request: any) => (
-                    <tr key={request.id}>
+                  {titles.map((title) => (
+                    <tr key={title.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {request.filmmaker?.first_name && request.filmmaker?.last_name
-                          ? `${request.filmmaker.first_name} ${request.filmmaker.last_name}`
-                          : request.filmmaker?.email || 'Unknown'
-                        }
+                        {title.title_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${request.amount_requested.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {request.status}
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {title.content_type}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(request.requested_at).toLocaleDateString()}
+                        {title.filmmaker?.first_name} {title.filmmaker?.last_name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {request.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleApprovePayment(request.id, request.amount_requested)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            Approve
-                          </Button>
-                        )}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          title.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          title.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {title.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${title.revenue_total.toLocaleString()}
                       </td>
                     </tr>
                   ))}
@@ -1035,34 +597,71 @@ export function AdminDashboard() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No payment requests</h3>
-              <p className="text-gray-500">Payment requests will appear here</p>
+              <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No titles yet</h3>
+              <p className="text-gray-500">
+                Add your first title to get started
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Add Filmmaker Modal */}
+      {showAddFilmmaker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Add New Filmmaker</h3>
+              <div className="space-y-4">
+                <Input
+                  label="Email"
+                  type="email"
+                  value={newFilmmaker.email}
+                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, email: e.target.value })}
+                  placeholder="filmmaker@example.com"
+                />
+                <Input
+                  label="First Name"
+                  value={newFilmmaker.first_name}
+                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, first_name: e.target.value })}
+                  placeholder="John"
+                />
+                <Input
+                  label="Last Name"
+                  value={newFilmmaker.last_name}
+                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, last_name: e.target.value })}
+                  placeholder="Doe"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button variant="secondary" onClick={() => setShowAddFilmmaker(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFilmmaker}>
+                  Create Filmmaker
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Title Modal */}
       {showAddTitle && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md max-h-[90vh] bg-white rounded-lg shadow-lg flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-lg font-semibold">Add New Title</h3>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              <form onSubmit={handleAddTitle} className="space-y-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Add New Title</h3>
+              <div className="space-y-4">
                 <Input
                   label="Title Name"
                   value={newTitle.title_name}
                   onChange={(e) => setNewTitle({ ...newTitle, title_name: e.target.value })}
-                  required
+                  placeholder="Enter title name"
                 />
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Content Type
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
                   <select
                     value={newTitle.content_type}
                     onChange={(e) => setNewTitle({ ...newTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
@@ -1073,174 +672,63 @@ export function AdminDashboard() {
                     <option value="episode">Episode</option>
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filmmaker
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Filmmaker</label>
                   <select
                     value={newTitle.filmmaker_id}
                     onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required
                   >
-                    <option value="">
-                      {loading ? 'Loading filmmakers...' : 'Select a filmmaker'}
-                    </option>
-                    {filmmakers.length > 0 ? (
-                      filmmakers.map((filmmaker) => (
-                        <option key={filmmaker.id} value={filmmaker.id}>
-                          {filmmaker.first_name && filmmaker.last_name 
-                            ? `${filmmaker.first_name} ${filmmaker.last_name} (${filmmaker.email})`
-                            : filmmaker.email
-                          }
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>
-                        {loading ? 'Loading...' : 'No filmmakers found'}
+                    <option value="">Select a filmmaker</option>
+                    {filmmakers.map((filmmaker) => (
+                      <option key={filmmaker.id} value={filmmaker.id}>
+                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
                       </option>
-                    )}
+                    ))}
                   </select>
-                  {filmmakers.length === 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      No filmmakers found in the users table. Please create a filmmaker first.
-                    </p>
-                  )}
-                  {filmmakers.length > 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      Found {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''} in the database
-                    </p>
-                  )}
                 </div>
-
                 <Input
                   label="Description"
                   value={newTitle.description}
                   onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
+                  placeholder="Enter description (optional)"
                 />
-
-                <Input
-                  label="Genre"
-                  value={newTitle.genre}
-                  onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
-                />
-
-                <Input
-                  label="Release Date"
-                  type="date"
-                  value={newTitle.release_date}
-                  onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
-                />
-
-                <Input
-                  label="Duration (minutes)"
-                  type="number"
-                  value={newTitle.duration_minutes}
-                  onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
-                />
-
-                <Input
-                  label="Rating"
-                  value={newTitle.rating}
-                  onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
-                />
-
-                <div className="border-t pt-4 mt-4">
-                  <h4 className="text-md font-semibold text-gray-900 mb-3">Historical Accounting Data</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="Previous Gross Amount"
-                      type="number"
-                      step="0.01"
-                      value={newTitle.previous_gross_amount}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_gross_amount: e.target.value })}
-                      placeholder="0.00"
-                    />
-
-                    <Input
-                      label="Previous Expenses"
-                      type="number"
-                      step="0.01"
-                      value={newTitle.previous_expenses}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_expenses: e.target.value })}
-                      placeholder="0.00"
-                    />
-
-                    <Input
-                      label="Previous Distribution Fee"
-                      type="number"
-                      step="0.01"
-                      value={newTitle.previous_distribution_fee}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_distribution_fee: e.target.value })}
-                      placeholder="0.00"
-                    />
-
-                    <Input
-                      label="Previous Net Revenue"
-                      type="number"
-                      step="0.01"
-                      value={newTitle.previous_net_revenue}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_net_revenue: e.target.value })}
-                      placeholder="0.00"
-                    />
-
-                    <Input
-                      label="Previous Amount Paid"
-                      type="number"
-                      step="0.01"
-                      value={newTitle.previous_amount_paid}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_amount_paid: e.target.value })}
-                      placeholder="0.00"
-                    />
-
-                    <Input
-                      label="Previous Balance Due"
-                      type="number"
-                      step="0.01"
-                      value={newTitle.previous_balance_due}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_balance_due: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 mt-4">
-                  <h4 className="text-md font-semibold text-gray-900 mb-3">Distribution Settings</h4>
+                <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Our Distribution Percentage (%)"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={newTitle.distribution_percentage}
-                    onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
-                    placeholder="20"
-                    required
+                    label="Genre"
+                    value={newTitle.genre}
+                    onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
+                    placeholder="e.g., Drama, Comedy"
                   />
-                  <p className="text-sm text-gray-500 mt-1">
-                    This percentage determines how much of any payment goes to the company vs. the filmmaker.
-                    For example, with 20%, if we receive $100, the filmmaker gets $80.
-                  </p>
+                  <Input
+                    label="Rating"
+                    value={newTitle.rating}
+                    onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
+                    placeholder="e.g., PG-13, R"
+                  />
                 </div>
-              </form>
-            </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex-shrink-0">
-              <div className="flex space-x-2">
-                <Button 
-                  onClick={handleAddTitle} 
-                  className="flex-1"
-                  disabled={!newTitle.title_name || !newTitle.filmmaker_id}
-                >
-                  Add Title
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setShowAddTitle(false)}
-                  className="flex-1"
-                >
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Release Date"
+                    type="date"
+                    value={newTitle.release_date}
+                    onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
+                  />
+                  <Input
+                    label="Duration (minutes)"
+                    type="number"
+                    value={newTitle.duration_minutes}
+                    onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
+                    placeholder="120"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button variant="secondary" onClick={() => setShowAddTitle(false)}>
                   Cancel
+                </Button>
+                <Button onClick={handleCreateTitle}>
+                  Create Title
                 </Button>
               </div>
             </div>
@@ -1248,72 +736,19 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* Add Filmmaker Modal */}
-      {showAddFilmmaker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Add New Filmmaker</h3>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddFilmmaker} className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  value={newFilmmaker.email}
-                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, email: e.target.value })}
-                  required
-                />
-                
-                <Input
-                  label="First Name"
-                  value={newFilmmaker.first_name}
-                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, first_name: e.target.value })}
-                  required
-                />
-
-                <Input
-                  label="Last Name"
-                  value={newFilmmaker.last_name}
-                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, last_name: e.target.value })}
-                  required
-                />
-
-                <div className="flex space-x-2">
-                  <Button type="submit" className="flex-1">Add Filmmaker</Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setShowAddFilmmaker(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Add Payment Modal */}
       {showAddPayment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Add New Payment</h3>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddPayment} className="space-y-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Add Streaming Payment</h3>
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                   <select
                     value={newPayment.title_id}
                     onChange={(e) => setNewPayment({ ...newPayment, title_id: e.target.value })}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required
                   >
                     <option value="">Select a title</option>
                     {titles.map((title) => (
@@ -1323,68 +758,56 @@ export function AdminDashboard() {
                     ))}
                   </select>
                 </div>
-
                 <Input
                   label="Platform"
                   value={newPayment.platform}
                   onChange={(e) => setNewPayment({ ...newPayment, platform: e.target.value })}
-                  required
+                  placeholder="e.g., Netflix, Amazon Prime"
                 />
-
                 <Input
-                  label="Outlet"
+                  label="Outlet (optional)"
                   value={newPayment.outlet}
                   onChange={(e) => setNewPayment({ ...newPayment, outlet: e.target.value })}
+                  placeholder="e.g., US, International"
                 />
-
                 <Input
                   label="Payment Date"
                   type="date"
                   value={newPayment.payment_date}
                   onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
-                  required
                 />
-
                 <Input
                   label="Gross Amount"
                   type="number"
                   step="0.01"
                   value={newPayment.gross_amount}
                   onChange={(e) => setNewPayment({ ...newPayment, gross_amount: e.target.value })}
-                  required
+                  placeholder="1000.00"
                 />
-
                 <Input
                   label="Distribution Percentage"
                   type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
                   value={newPayment.distribution_percentage}
                   onChange={(e) => setNewPayment({ ...newPayment, distribution_percentage: e.target.value })}
-                  required
+                  placeholder="50"
                 />
-
                 <Input
-                  label="Notes"
+                  label="Notes (optional)"
                   value={newPayment.notes}
                   onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+                  placeholder="Additional notes"
                 />
-
-                <div className="flex space-x-2">
-                  <Button type="submit" className="flex-1">Add Payment</Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setShowAddPayment(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button variant="secondary" onClick={() => setShowAddPayment(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddPayment}>
+                  Add Payment
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
