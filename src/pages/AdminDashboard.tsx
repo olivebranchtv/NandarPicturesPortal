@@ -343,11 +343,11 @@ export function AdminDashboard() {
           .from('title_distribution_settings')
           .upsert({
           title_id: editingTitle.id,
+          company_percentage: companyPercentage,
+          filmmaker_percentage: filmmakertPercentage,
          }, {
            onConflict: 'title_id'
          });
-          filmmaker_percentage: filmmakertPercentage,
-        });
 
       if (distributionError) {
         console.error('Error updating distribution settings:', distributionError);
@@ -604,7 +604,7 @@ export function AdminDashboard() {
 
             {/* Recent Activity */}
             <Card>
-                        <p className="text-sm text-blue-700 mb-3">Set the revenue split between company and filmmaker. Enter the company percentage (filmmaker gets the remainder).</p>
+              <CardHeader>
                 <h3 className="text-lg font-semibold">Recent Activity</h3>
               </CardHeader>
               <CardContent>
@@ -613,14 +613,11 @@ export function AdminDashboard() {
                     <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-900">
-                          placeholder="Enter percentage (e.g., 20 for 20%)"
-                          required
+                          {request.filmmaker?.first_name} {request.filmmaker?.last_name}
                         </p>
-                        {editTitleForm.distribution_percentage && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Company: {editTitleForm.distribution_percentage}% | Filmmaker: {100 - Number(editTitleForm.distribution_percentage || 0)}%
-                          </p>
-                        )}
+                        <p className="text-sm text-gray-500">
+                          ${request.amount_requested.toLocaleString()} requested
+                        </p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
