@@ -243,7 +243,7 @@ export function AdminDashboard() {
       }
 
       // Create distribution settings for the title
-      const companyPercentage = newTitle.distribution_percentage ? parseFloat(newTitle.distribution_percentage) : 20;
+      const companyPercentage = newTitle.distribution_percentage ? parseFloat(newTitle.distribution_percentage) : 25;
       const filmmakertPercentage = 100 - companyPercentage;
 
       const { error: distributionError } = await supabase
@@ -269,7 +269,7 @@ export function AdminDashboard() {
         duration_minutes: '',
         rating: '',
         filmmaker_id: '',
-        distribution_percentage: '20',
+        distribution_percentage: '25',
         previous_gross_amount: '',
         previous_expenses: '',
         previous_distribution_fee: '',
@@ -302,7 +302,7 @@ export function AdminDashboard() {
       duration_minutes: title.duration_minutes?.toString() || '',
       rating: title.rating || '',
       filmmaker_id: title.filmmaker_id || '',
-      distribution_percentage: title.title_distribution_settings?.[0]?.company_percentage?.toString() || '20',
+      distribution_percentage: title.title_distribution_settings?.[0]?.company_percentage?.toString() || '25',
       previous_gross_amount: title.previous_gross_amount?.toString() || '',
       previous_expenses: title.previous_expenses?.toString() || '',
       previous_distribution_fee: title.previous_distribution_fee?.toString() || '',
@@ -343,7 +343,7 @@ export function AdminDashboard() {
       if (error) throw error;
 
       // Update distribution settings
-      const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 20;
+      const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 25;
       const filmmakerPercentage = 100 - companyPercentage;
 
       console.log('Updating distribution settings:', {
@@ -397,7 +397,7 @@ export function AdminDashboard() {
       if (titleError) throw titleError;
 
       // Use the title's distribution percentage, default to 50% if not set
-      const distributionPercentage = titleData.title_distribution_settings?.[0]?.company_percentage || 50;
+      const distributionPercentage = titleData.title_distribution_settings?.[0]?.company_percentage || 25;
 
       const { error } = await supabase
         .from('streaming_payments')
