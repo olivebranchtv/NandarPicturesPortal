@@ -125,6 +125,12 @@ export function useAuth() {
     if (!supabase) return { error: new Error('Supabase not configured') };
     
     const { error } = await supabase.auth.signOut();
+    
+    // If the session doesn't exist on the server, treat it as a successful logout
+    if (error && error.message === 'Session from session_id claim in JWT does not exist') {
+      return { error: null };
+    }
+    
     return { error };
   };
 
