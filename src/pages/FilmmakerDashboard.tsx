@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface FilmmakerStats {
   totalTitles: number;
@@ -352,36 +353,7 @@ export function FilmmakerDashboard() {
 
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
-        <div className="space-y-6">
-          <div className="flex items-center space-x-2">
-            <BarChart3 className="h-6 w-6 text-blue-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Financial Dashboard</h2>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Financial Analytics</h3>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Financial Dashboard Coming Soon</h3>
-                <p className="text-gray-500">
-                  Comprehensive financial analytics with charts, metrics, and export capabilities will be available here.
-                </p>
-                <div className="mt-4 text-sm text-gray-400">
-                  <p>Features will include:</p>
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Revenue vs Expenses charts</li>
-                    <li>Historical data integration</li>
-                    <li>Export to PDF/CSV</li>
-                    <li>Advanced filtering options</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
       ) : (
         <>
           {/* Stats Grid */}
