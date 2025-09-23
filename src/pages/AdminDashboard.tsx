@@ -697,7 +697,7 @@ export function AdminDashboard() {
       const totalTitles = allTitles.length;
 
           status: 'approved',
-          amount_approved: approvedAmount,
+          amount_approved: approvedAmount
         })
         .eq('id', requestId);
 
