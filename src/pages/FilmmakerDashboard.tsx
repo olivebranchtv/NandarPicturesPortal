@@ -36,19 +36,31 @@ export function FilmmakerDashboard() {
   }, [profile]);
 
   const fetchDashboardData = async () => {
-    if (!profile?.id) return;
+    if (!profile?.id) {
+      console.log('No profile ID available');
+      setLoading(false);
+      return;
+    }
 
     try {
-      console.log('Fetching filmmaker dashboard data for ID:', profile.id);
+      console.log('=== FILMMAKER DASHBOARD DATA FETCH ===');
+      console.log('Fetching data for filmmaker ID:', profile.id);
+      console.log('Profile email:', profile.email);
       
-      // Fetch filmmaker's titles
+      // Fetch filmmaker's titles with detailed logging
+      console.log('Step 1: Fetching titles...');
       const { data: titlesData, error: titlesError } = await supabase
         .from('content')
         .select('*')
         .eq('filmmaker_id', profile.id)
         .order('created_at', { ascending: false });
 
-      console.log('Titles query result:', { titlesData, titlesError });
+      console.log('Titles query result:', { 
+        titlesData, 
+        titlesError,
+        count: titlesData?.length || 0 
+      });
+
       if (titlesError) {
         console.error('Error fetching titles:', titlesError);
         throw titlesError;
@@ -56,9 +68,31 @@ export function FilmmakerDashboard() {
       
       const filmmakertitles = titlesData || [];
       setTitles(filmmakertitles);
-      console.log('Filmmaker titles found:', filmmakertitles.length);
+      console.log('✅ Titles set:', filmmakertitles.length);
+
+      // If no titles found, check if filmmaker exists in other ways
+      if (filmmakertitles.length === 0) {
+        console.log('⚠️ No titles found for filmmaker. Checking alternative queries...');
+        
+        // Check if there are any titles with this email as owner
+        const { data: emailTitles, error: emailError } = await supabase
+          .from('content')
+          .select('*')
+          .eq('owner_email', profile.email);
+        
+        console.log('Email-based titles:', { emailTitles, emailError });
+        
+        // Check all titles to see what's available
+        const { data: allTitles, error: allError } = await supabase
+          .from('content')
+          .select('*')
+          .limit(5);
+        
+        console.log('Sample of all titles:', { allTitles, allError });
+      }
 
       // Fetch filmmaker's balance
+      console.log('Step 2: Fetching balance...');
       const { data: balanceData, error: balanceError } = await supabase
         .from('filmmaker_balances')
         .select('*')
@@ -72,10 +106,12 @@ export function FilmmakerDashboard() {
       setBalance(balanceData);
 
       // Fetch streaming payments for filmmaker's titles
+      console.log('Step 3: Fetching streaming payments...');
       const titleIds = filmmakertitles.map(title => title.id);
       let streamingPaymentsData: any[] = [];
       
       if (titleIds.length > 0) {
+        console.log('Fetching payments for title IDs:', titleIds);
         const { data: paymentsData, error: paymentsError } = await supabase
           .from('streaming_payments')
           .select(`
@@ -85,15 +121,23 @@ export function FilmmakerDashboard() {
           .in('title_id', titleIds)
           .order('payment_date', { ascending: false });
 
-        console.log('Streaming payments query result:', { paymentsData, paymentsError });
+        console.log('Streaming payments query result:', { 
+          paymentsData, 
+          paymentsError,
+          count: paymentsData?.length || 0 
+        });
+        
         if (paymentsError) {
           console.error('Error fetching streaming payments:', paymentsError);
         } else {
           streamingPaymentsData = paymentsData || [];
         }
+      } else {
+        console.log('No title IDs to fetch payments for');
       }
 
-      // Process historical data from titles (previous revenue data)
+      // Process historical data from titles
+      console.log('Step 4: Processing historical data...');
       const historicalPayments = filmmakertitles
         .filter(content => 
           (content.previous_gross_amount && content.previous_gross_amount > 0) || 
@@ -122,9 +166,10 @@ export function FilmmakerDashboard() {
       // Combine streaming payments with historical data
       const allPayments = [...streamingPaymentsData, ...historicalPayments];
       setStreamingPayments(allPayments);
-      console.log('Total payments (streaming + historical):', allPayments.length);
+      console.log('✅ Total payments (streaming + historical):', allPayments.length);
 
       // Calculate totals including historical data
+      console.log('Step 5: Calculating totals...');
       const currentEarned = balanceData?.total_earned || 0;
       const currentPaid = balanceData?.total_paid || 0;
       
@@ -146,13 +191,19 @@ export function FilmmakerDashboard() {
       console.log('Streaming totals calculated:', streamingTotals);
 
       // Fetch payment requests
+      console.log('Step 6: Fetching payment requests...');
       const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
         .select('*')
         .eq('filmmaker_id', profile.id)
         .order('requested_at', { ascending: false });
 
-      console.log('Payment requests query result:', { requestsData, requestsError });
+      console.log('Payment requests query result:', { 
+        requestsData, 
+        requestsError,
+        count: requestsData?.length || 0 
+      });
+      
       if (requestsError) {
         console.error('Error fetching payment requests:', requestsError);
       }
@@ -170,11 +221,13 @@ export function FilmmakerDashboard() {
         availableBalance: availableBalance,
       };
       
-      console.log('Final filmmaker stats calculated:', finalStats);
+      console.log('✅ Final filmmaker stats calculated:', finalStats);
       setStats(finalStats);
 
+      console.log('=== FILMMAKER DASHBOARD DATA FETCH COMPLETE ===');
+
     } catch (error) {
-      console.error('Error fetching filmmaker dashboard data:', error);
+      console.error('❌ Error fetching filmmaker dashboard data:', error);
     } finally {
       setLoading(false);
     }
@@ -222,6 +275,7 @@ export function FilmmakerDashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <p className="ml-4 text-gray-600">Loading filmmaker data...</p>
       </div>
     );
   }
@@ -268,7 +322,7 @@ export function FilmmakerDashboard() {
           </div>
           
           <div className="text-sm text-gray-500">
-          Welcome back, {profile?.first_name || 'Filmmaker'}!
+            Welcome back, {profile?.first_name || 'Filmmaker'}!
           </div>
         </div>
       </div>
@@ -278,255 +332,268 @@ export function FilmmakerDashboard() {
         <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
       ) : (
         <>
-      {/* Debug Information */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold text-blue-600">Debug Information</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p><strong>Filmmaker ID:</strong> {profile?.id}</p>
-                <p><strong>Titles Found:</strong> {titles.length}</p>
-                <p><strong>Streaming Payments:</strong> {streamingPayments.filter(p => !p.id.toString().startsWith('historical')).length}</p>
-                <p><strong>Historical Payments:</strong> {streamingPayments.filter(p => p.id.toString().startsWith('historical')).length}</p>
-              </div>
-              <div>
-                <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
-                <p><strong>Balance Record:</strong> {balance ? 'Found' : 'Not Found'}</p>
-                <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
-                <p><strong>Role:</strong> {profile?.role}</p>
-              </div>
-            </div>
-            {titles.length > 0 && (
-              <div className="mt-4">
-                <p><strong>All Titles:</strong></p>
-                <ul className="list-disc list-inside text-xs">
-                  {titles.map(title => (
-                    <li key={title.id}>
-                      {title.title_name} (ID: {title.id}) - Status: {title.status} - 
-                      Historical: ${title.previous_gross_amount || 0}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          icon={Film}
-          title="My Titles"
-          value={stats.totalTitles}
-          color="bg-blue-600"
-        />
-        <StatCard
-          icon={DollarSign}
-          title="Total Earned"
-          value={`$${stats.totalEarned.toLocaleString()}`}
-          color="bg-green-600"
-        />
-        <StatCard
-          icon={TrendingUp}
-          title="Total Paid"
-          value={`$${stats.totalPaid.toLocaleString()}`}
-          color="bg-purple-600"
-        />
-        <StatCard
-          icon={Clock}
-          title="Available Balance"
-          value={`$${stats.availableBalance.toLocaleString()}`}
-          color="bg-orange-600"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2" />
-              Payment History & Revenue
-            </h3>
-          </CardHeader>
-          <CardContent>
-            {streamingPayments.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="title" />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name === 'gross' ? 'Gross Revenue' : 'Your Share']}
-                    labelFormatter={(label) => `Title: ${label}`}
-                  />
-                  <Bar dataKey="gross" fill="#3B82F6" name="Gross Payment" />
-                  <Bar dataKey="net" fill="#10B981" name="Your Share" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-gray-500">
-                <div className="text-center">
-                  <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No revenue data available</p>
-                  <p className="text-sm">Revenue and payments will appear here</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Payment Request Section */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Request Payment</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600">Available Balance</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${stats.availableBalance.toLocaleString()}
-                </p>
-              </div>
-
-              {stats.availableBalance >= 100 ? (
-                <Button
-                  onClick={handleRequestPayment}
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Request Payment
-                </Button>
-              ) : (
-                <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    Minimum balance of $100 required for payment requests
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Streaming Payments Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Revenue & Payment History</h3>
-            <div className="text-sm text-gray-500">
-              {titles.length} title{titles.length !== 1 ? 's' : ''} • {streamingPayments.length} payment{streamingPayments.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {streamingPayments.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Platform
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Gross Revenue
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Your Share
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {streamingPayments.map((payment: any) => (
-                    <tr key={payment.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {payment.content.title_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          payment.platform === 'Historical Data' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {payment.platform}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(payment.payment_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${payment.gross_amount.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${payment.net_amount.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No revenue data yet</h3>
-              <p className="text-gray-500">
-                Revenue and payment history will appear here once titles are added and payments are processed
-              </p>
-              {titles.length === 0 && (
-                <p className="text-sm text-red-500 mt-2">
-                  No titles found for this filmmaker account. Contact admin to add titles.
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Payment Requests */}
-      {paymentRequests.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Recent Payment Requests</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {paymentRequests.slice(0, 5).map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          {/* Debug Information */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold text-blue-600">Debug Information</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="font-medium text-gray-900">
-                      ${request.amount_requested.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(request.requested_at).toLocaleDateString()}
-                    </p>
+                    <p><strong>Filmmaker ID:</strong> {profile?.id}</p>
+                    <p><strong>Filmmaker Email:</strong> {profile?.email}</p>
+                    <p><strong>Titles Found:</strong> {titles.length}</p>
+                    <p><strong>Streaming Payments:</strong> {streamingPayments.filter(p => !p.id.toString().startsWith('historical')).length}</p>
+                    <p><strong>Historical Payments:</strong> {streamingPayments.filter(p => p.id.toString().startsWith('historical')).length}</p>
                   </div>
-                  <div className="text-right">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {request.status}
-                    </span>
+                  <div>
+                    <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
+                    <p><strong>Balance Record:</strong> {balance ? 'Found' : 'Not Found'}</p>
+                    <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
+                    <p><strong>Role:</strong> {profile?.role}</p>
+                    <p><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                {titles.length > 0 && (
+                  <div className="mt-4">
+                    <p><strong>All Titles:</strong></p>
+                    <ul className="list-disc list-inside text-xs">
+                      {titles.map(title => (
+                        <li key={title.id}>
+                          {title.title_name} (ID: {title.id}) - Status: {title.status} - 
+                          Historical: ${title.previous_gross_amount || 0}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {titles.length === 0 && (
+                  <div className="mt-4 p-4 bg-red-50 rounded-lg">
+                    <p className="text-red-800 font-medium">No titles found for this filmmaker!</p>
+                    <p className="text-red-600 text-sm">Check console for detailed debugging information.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              icon={Film}
+              title="My Titles"
+              value={stats.totalTitles}
+              color="bg-blue-600"
+            />
+            <StatCard
+              icon={DollarSign}
+              title="Total Earned"
+              value={`$${stats.totalEarned.toLocaleString()}`}
+              color="bg-green-600"
+            />
+            <StatCard
+              icon={TrendingUp}
+              title="Total Paid"
+              value={`$${stats.totalPaid.toLocaleString()}`}
+              color="bg-purple-600"
+            />
+            <StatCard
+              icon={Clock}
+              title="Available Balance"
+              value={`$${stats.availableBalance.toLocaleString()}`}
+              color="bg-orange-600"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue Chart */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Payment History & Revenue
+                </h3>
+              </CardHeader>
+              <CardContent>
+                {streamingPayments.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="title" />
+                      <YAxis />
+                      <Tooltip 
+                        formatter={(value, name) => [`$${Number(value).toLocaleString()}`, name === 'gross' ? 'Gross Revenue' : 'Your Share']}
+                        labelFormatter={(label) => `Title: ${label}`}
+                      />
+                      <Bar dataKey="gross" fill="#3B82F6" name="Gross Payment" />
+                      <Bar dataKey="net" fill="#10B981" name="Your Share" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="text-center">
+                      <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>No revenue data available</p>
+                      <p className="text-sm">Revenue and payments will appear here</p>
+                      {titles.length === 0 && (
+                        <p className="text-sm text-red-500 mt-2">
+                          No titles found for this filmmaker account
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Payment Request Section */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Request Payment</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Available Balance</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      ${stats.availableBalance.toLocaleString()}
+                    </p>
+                  </div>
+
+                  {stats.availableBalance >= 100 ? (
+                    <Button
+                      onClick={handleRequestPayment}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Request Payment
+                    </Button>
+                  ) : (
+                    <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        Minimum balance of $100 required for payment requests
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Streaming Payments Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Revenue & Payment History</h3>
+                <div className="text-sm text-gray-500">
+                  {titles.length} title{titles.length !== 1 ? 's' : ''} • {streamingPayments.length} payment{streamingPayments.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {streamingPayments.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Title
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Platform
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Gross Revenue
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Your Share
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {streamingPayments.map((payment: any) => (
+                        <tr key={payment.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {payment.content.title_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              payment.platform === 'Historical Data' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {payment.platform}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(payment.payment_date).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${payment.gross_amount.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${payment.net_amount.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No revenue data yet</h3>
+                  <p className="text-gray-500">
+                    Revenue and payment history will appear here once titles are added and payments are processed
+                  </p>
+                  {titles.length === 0 && (
+                    <p className="text-sm text-red-500 mt-2">
+                      No titles found for this filmmaker account. Contact admin to add titles.
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Payment Requests */}
+          {paymentRequests.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Recent Payment Requests</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {paymentRequests.slice(0, 5).map((request) => (
+                    <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          ${request.amount_requested.toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(request.requested_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {request.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
