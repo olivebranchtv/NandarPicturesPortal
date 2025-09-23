@@ -244,21 +244,15 @@ export function AdminDashboard() {
 
       // Create distribution settings for the title
       const companyPercentage = newTitle.distribution_percentage ? parseFloat(newTitle.distribution_percentage) : 20;
-      const filmmakerPercentage = 100 - companyPercentage;
-
-      console.log('Creating distribution settings:', {
-        title_id: data.id,
-        company_percentage: companyPercentage,
-        filmmaker_percentage: filmmakerPercentage
-      });
+      const filmmakertPercentage = 100 - companyPercentage;
 
       const { error: distributionError } = await supabase
         .from('title_distribution_settings')
-        .insert([{
+        .insert({
           title_id: data.id,
           company_percentage: companyPercentage,
-          filmmaker_percentage: filmmakerPercentage,
-        }]);
+          filmmaker_percentage: filmmakertPercentage,
+        });
 
       if (distributionError) {
         console.error('Error creating distribution settings:', distributionError);
