@@ -578,7 +578,6 @@ export function AdminDashboard() {
         .select('*')
         .eq('id', authData.user.id)
         .single();
-      console.log('Users query result:', { usersData, usersError });
 
       if (verifyError) {
         console.error('User profile not found after creation:', verifyError);
@@ -629,7 +628,6 @@ export function AdminDashboard() {
           distribution_percentage: parseFloat(newPayment.distribution_percentage),
           notes: newPayment.notes || null,
         });
-      console.log('Payment requests query result:', { requestsData, requestsError });
 
       if (error) throw error;
 
@@ -642,12 +640,18 @@ export function AdminDashboard() {
         gross_amount: '',
         distribution_percentage: '50',
         notes: '',
-       });
-       console.log('Add payment form submitted');
+      });
       setShowAddPayment(false);
       fetchDashboardData();
+      alert('Payment added successfully!');
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      alert('Error adding payment. Please try again.');
+    }
+  };
+
   const handleApproveTitle = async (titleId: string) => {
-      const historicalPayments = allTitles
+    if (!supabase) return;
 
     try {
       const { error } = await supabase
@@ -658,8 +662,6 @@ export function AdminDashboard() {
       if (error) throw error;
 
       fetchDashboardData();
-      console.log('Historical payments processed:', historicalPayments);
-
       alert('Title approved successfully!');
     } catch (error) {
       console.error('Error approving title:', error);
@@ -670,13 +672,11 @@ export function AdminDashboard() {
   const handleRejectTitle = async (titleId: string) => {
     if (!supabase) return;
 
-      console.log('Current payments processed:', currentPayments);
-
     try {
       const { error } = await supabase
         .from('content')
         .update({ status: 'rejected' })
-      const expenseEntries = allTitles
+        .eq('id', titleId);
 
       if (error) throw error;
 
@@ -688,36 +688,19 @@ export function AdminDashboard() {
     }
   };
 
-      console.log('Complete financial data:', completeFinancialData);
-      console.log('Content query result:', { contentData, contentError });
   const handleApprovePayment = async (requestId: string, approvedAmount: number) => {
-      const allTitles = contentData || [];
-      setTitles(allTitles);
-      const totalUsers = (usersData || []).length;
-      const totalTitles = allTitles.length;
+    if (!supabase) return;
 
+    try {
+      const { error } = await supabase
+        .from('payment_requests')
+        .update({
           status: 'approved',
-          amount_approved: approvedAmount
+          amount_approved: approvedAmount,
         })
         .eq('id', requestId);
 
       if (error) throw error;
-      
-      console.log('Payment request approved successfully');
-
-      console.log('Summary stats calculated:', {
-        totalUsers,
-        totalTitles,
-        pendingRequests,
-        totalRevenue: totalRevenueWithHistory,
-      });
-
-      setStats({
-        totalUsers,
-        totalTitles,
-        pendingRequests,
-        totalRevenue: totalRevenueWithHistory,
-      });
 
       fetchDashboardData();
       alert('Payment request approved!');
