@@ -287,6 +287,12 @@ export function AdminDashboard() {
 
   const handleEditTitle = (title: Content) => {
     setEditingTitle(title);
+    
+    // Get the distribution percentage from the title's distribution settings
+    const distributionPercentage = title.title_distribution_settings && title.title_distribution_settings.length > 0
+      ? title.title_distribution_settings[0].company_percentage.toString()
+      : '';
+    
     setEditTitle({
       title_name: title.title_name,
       content_type: title.content_type,
@@ -302,7 +308,7 @@ export function AdminDashboard() {
       previous_distribution_fee: title.previous_distribution_fee?.toString() || '',
       previous_net_revenue: title.previous_net_revenue?.toString() || '',
       previous_amount_paid: title.previous_amount_paid?.toString() || '',
-      previous_balance_due: title.previous_balance_due?.toString() || '',
+      distributionPercentage: distributionPercentage,
     });
     setShowEditTitle(true);
   };
