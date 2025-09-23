@@ -377,6 +377,28 @@ export function AdminDashboard() {
     }
   };
 
+  const handleDeleteTitle = async (titleId: string) => {
+    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      console.log('Deleting title:', titleId);
+      
+      const { error } = await supabase
+        .from('content')
+        .delete()
+        .eq('id', titleId);
+
+      if (error) throw error;
+
+      alert('Title deleted successfully!');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error deleting title:', error);
+      alert('Error deleting title. Please try again.');
+    }
+  };
   const handleAddPayment = async () => {
     if (!newPayment.title_id || !newPayment.platform || !newPayment.payment_date || !newPayment.gross_amount) {
       alert('Please fill in all required fields');
@@ -447,27 +469,6 @@ export function AdminDashboard() {
     } catch (error) {
       console.error('Error approving payment:', error);
       alert('Error approving payment request. Please try again.');
-    }
-  };
-
-  const handleDeleteTitle = async (titleId: string) => {
-    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('content')
-        .delete()
-        .eq('id', titleId);
-
-      if (error) throw error;
-
-      alert('Title deleted successfully!');
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error deleting title:', error);
-      alert('Error deleting title. Please try again.');
     }
   };
 
@@ -854,439 +855,400 @@ export function AdminDashboard() {
         </>
       )}
 
-      {/* Add Title Modal */}
-      {showAddTitle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Add New Title</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Title Name"
-                    value={newTitle.title_name}
-                    onChange={(e) => setNewTitle({ ...newTitle, title_name: e.target.value })}
-                    placeholder="Enter title name"
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Content Type
-                    </label>
-                    <select
-                      value={newTitle.content_type}
-                      onChange={(e) => setNewTitle({ ...newTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="movie">Movie</option>
-                      <option value="series">Series</option>
-                      <option value="episode">Episode</option>
-                    </select>
-                  </div>
-                </div>
+     {/* Add Title Modal */}
+     {showAddTitle && (
+       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+         <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+           <div className="flex items-center justify-between p-6 border-b border-gray-200">
+             <h2 className="text-xl font-semibold text-gray-900">Add New Title</h2>
+             <Button
+               variant="secondary"
+               size="sm"
+               onClick={() => setShowAddTitle(false)}
+               className="flex items-center space-x-1"
+             >
+               <X className="h-4 w-4" />
+             </Button>
+           </div>
+           <div className="p-6 space-y-4">
+             <Input
+               label="Title Name"
+               value={newTitle.title_name}
+               onChange={(e) => setNewTitle({ ...newTitle, title_name: e.target.value })}
+               placeholder="Enter title name"
+             />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   Content Type
+                 </label>
+                 <select
+                   value={newTitle.content_type}
+                   onChange={(e) => setNewTitle({ ...newTitle, content_type: e.target.value as any })}
+                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="movie">Movie</option>
+                   <option value="series">Series</option>
+                   <option value="episode">Episode</option>
+                 </select>
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   Filmmaker
+                 </label>
+                 <select
+                   value={newTitle.filmmaker_id}
+                   onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
+                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="">Select Filmmaker</option>
+                   {filmmakers.map((filmmaker) => (
+                     <option key={filmmaker.id} value={filmmaker.id}>
+                       {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             </div>
+             <Input
+               label="Description"
+               value={newTitle.description}
+               onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
+               placeholder="Enter description"
+             />
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <Input
+                 label="Genre"
+                 value={newTitle.genre}
+                 onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
+                 placeholder="Enter genre"
+               />
+               <Input
+                 label="Release Date"
+                 type="date"
+                 value={newTitle.release_date}
+                 onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
+               />
+               <Input
+                 label="Duration (minutes)"
+                 type="number"
+                 value={newTitle.duration_minutes}
+                 onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: parseInt(e.target.value) || 0 })}
+                 placeholder="120"
+               />
+             </div>
+             <div className="border-t pt-4">
+               <h3 className="text-lg font-medium text-gray-900 mb-4">Historical Data (Optional)</h3>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <Input
+                   label="Previous Gross Amount"
+                   type="number"
+                   value={newTitle.previous_gross_amount}
+                   onChange={(e) => setNewTitle({ ...newTitle, previous_gross_amount: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+                 <Input
+                   label="Previous Expenses"
+                   type="number"
+                   value={newTitle.previous_expenses}
+                   onChange={(e) => setNewTitle({ ...newTitle, previous_expenses: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+                 <Input
+                   label="Previous Distribution Fee"
+                   type="number"
+                   value={newTitle.previous_distribution_fee}
+                   onChange={(e) => setNewTitle({ ...newTitle, previous_distribution_fee: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+                 <Input
+                   label="Previous Amount Paid"
+                   type="number"
+                   value={newTitle.previous_amount_paid}
+                   onChange={(e) => setNewTitle({ ...newTitle, previous_amount_paid: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+               </div>
+             </div>
+           </div>
+           <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+             <Button
+               variant="secondary"
+               onClick={() => setShowAddTitle(false)}
+             >
+               Cancel
+             </Button>
+             <Button onClick={handleAddTitle}>
+               Add Title
+             </Button>
+           </div>
+         </div>
+       </div>
+     )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filmmaker
-                  </label>
-                  <select
-                    value={newTitle.filmmaker_id}
-                    onChange={(e) => setNewTitle({ ...newTitle, filmmaker_id: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a filmmaker</option>
-                    {filmmakers.map((filmmaker) => (
-                      <option key={filmmaker.id} value={filmmaker.id}>
-                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+     {/* Edit Title Modal */}
+     {showEditTitle && editingTitle && (
+       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+         <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+           <div className="flex items-center justify-between p-6 border-b border-gray-200">
+             <h2 className="text-xl font-semibold text-gray-900">Edit Title</h2>
+             <Button
+               variant="secondary"
+               size="sm"
+               onClick={() => setShowEditTitle(false)}
+               className="flex items-center space-x-1"
+             >
+               <X className="h-4 w-4" />
+             </Button>
+           </div>
+           <div className="p-6 space-y-4">
+             <Input
+               label="Title Name"
+               value={editingTitle.title_name}
+               onChange={(e) => setEditingTitle({ ...editingTitle, title_name: e.target.value })}
+               placeholder="Enter title name"
+             />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   Content Type
+                 </label>
+                 <select
+                   value={editingTitle.content_type}
+                   onChange={(e) => setEditingTitle({ ...editingTitle, content_type: e.target.value as any })}
+                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="movie">Movie</option>
+                   <option value="series">Series</option>
+                   <option value="episode">Episode</option>
+                 </select>
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   Status
+                 </label>
+                 <select
+                   value={editingTitle.status}
+                   onChange={(e) => setEditingTitle({ ...editingTitle, status: e.target.value as any })}
+                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                 >
+                   <option value="pending">Pending</option>
+                   <option value="approved">Approved</option>
+                   <option value="rejected">Rejected</option>
+                 </select>
+               </div>
+             </div>
+             <Input
+               label="Description"
+               value={editingTitle.description || ''}
+               onChange={(e) => setEditingTitle({ ...editingTitle, description: e.target.value })}
+               placeholder="Enter description"
+             />
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <Input
+                 label="Genre"
+                 value={editingTitle.genre || ''}
+                 onChange={(e) => setEditingTitle({ ...editingTitle, genre: e.target.value })}
+                 placeholder="Enter genre"
+               />
+               <Input
+                 label="Release Date"
+                 type="date"
+                 value={editingTitle.release_date || ''}
+                 onChange={(e) => setEditingTitle({ ...editingTitle, release_date: e.target.value })}
+               />
+               <Input
+                 label="Duration (minutes)"
+                 type="number"
+                 value={editingTitle.duration_minutes || 0}
+                 onChange={(e) => setEditingTitle({ ...editingTitle, duration_minutes: parseInt(e.target.value) || 0 })}
+                 placeholder="120"
+               />
+             </div>
+             <div className="border-t pt-4">
+               <h3 className="text-lg font-medium text-gray-900 mb-4">Historical Data</h3>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <Input
+                   label="Previous Gross Amount"
+                   type="number"
+                   value={editingTitle.previous_gross_amount || 0}
+                   onChange={(e) => setEditingTitle({ ...editingTitle, previous_gross_amount: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+                 <Input
+                   label="Previous Expenses"
+                   type="number"
+                   value={editingTitle.previous_expenses || 0}
+                   onChange={(e) => setEditingTitle({ ...editingTitle, previous_expenses: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+                 <Input
+                   label="Previous Distribution Fee"
+                   type="number"
+                   value={editingTitle.previous_distribution_fee || 0}
+                   onChange={(e) => setEditingTitle({ ...editingTitle, previous_distribution_fee: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+                 <Input
+                   label="Previous Amount Paid"
+                   type="number"
+                   value={editingTitle.previous_amount_paid || 0}
+                   onChange={(e) => setEditingTitle({ ...editingTitle, previous_amount_paid: parseFloat(e.target.value) || 0 })}
+                   placeholder="0.00"
+                 />
+               </div>
+             </div>
+           </div>
+           <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+             <Button
+               variant="secondary"
+               onClick={() => setShowEditTitle(false)}
+             >
+               Cancel
+             </Button>
+             <Button onClick={handleEditTitle}>
+               Save Changes
+             </Button>
+           </div>
+         </div>
+       </div>
+     )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Genre"
-                    value={newTitle.genre}
-                    onChange={(e) => setNewTitle({ ...newTitle, genre: e.target.value })}
-                    placeholder="e.g., Drama, Comedy"
-                  />
-                  <Input
-                    label="Release Date"
-                    type="date"
-                    value={newTitle.release_date}
-                    onChange={(e) => setNewTitle({ ...newTitle, release_date: e.target.value })}
-                  />
-                </div>
+     {/* Add Filmmaker Modal */}
+     {showAddFilmmaker && (
+       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+         <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+           <div className="flex items-center justify-between p-6 border-b border-gray-200">
+             <h2 className="text-xl font-semibold text-gray-900">Add New Filmmaker</h2>
+             <Button
+               variant="secondary"
+               size="sm"
+               onClick={() => setShowAddFilmmaker(false)}
+               className="flex items-center space-x-1"
+             >
+               <X className="h-4 w-4" />
+             </Button>
+           </div>
+           <div className="p-6 space-y-4">
+             <Input
+               label="Email"
+               type="email"
+               value={newFilmmaker.email}
+               onChange={(e) => setNewFilmmaker({ ...newFilmmaker, email: e.target.value })}
+               placeholder="filmmaker@example.com"
+             />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <Input
+                 label="First Name"
+                 value={newFilmmaker.first_name}
+                 onChange={(e) => setNewFilmmaker({ ...newFilmmaker, first_name: e.target.value })}
+                 placeholder="John"
+               />
+               <Input
+                 label="Last Name"
+                 value={newFilmmaker.last_name}
+                 onChange={(e) => setNewFilmmaker({ ...newFilmmaker, last_name: e.target.value })}
+                 placeholder="Doe"
+               />
+             </div>
+           </div>
+           <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+             <Button
+               variant="secondary"
+               onClick={() => setShowAddFilmmaker(false)}
+             >
+               Cancel
+             </Button>
+             <Button onClick={handleAddFilmmaker}>
+               Add Filmmaker
+             </Button>
+           </div>
+         </div>
+       </div>
+     )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input
-                    label="Duration (minutes)"
-                    type="number"
-                    value={newTitle.duration_minutes}
-                    onChange={(e) => setNewTitle({ ...newTitle, duration_minutes: e.target.value })}
-                    placeholder="120"
-                  />
-                  <Input
-                    label="Rating"
-                    value={newTitle.rating}
-                    onChange={(e) => setNewTitle({ ...newTitle, rating: e.target.value })}
-                    placeholder="PG-13, R, etc."
-                  />
-                  <Input
-                    label="Company Distribution %"
-                    type="number"
-                    value={newTitle.distribution_percentage}
-                    onChange={(e) => setNewTitle({ ...newTitle, distribution_percentage: e.target.value })}
-                    placeholder="25"
-                  />
-                </div>
-
-                <Input
-                  label="Description"
-                  value={newTitle.description}
-                  onChange={(e) => setNewTitle({ ...newTitle, description: e.target.value })}
-                  placeholder="Brief description of the title"
-                />
-
-                <div className="border-t pt-4">
-                  <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data (Optional)</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Previous Gross Amount"
-                      type="number"
-                      value={newTitle.previous_gross_amount}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_gross_amount: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Expenses"
-                      type="number"
-                      value={newTitle.previous_expenses}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_expenses: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Distribution Fee"
-                      type="number"
-                      value={newTitle.previous_distribution_fee}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_distribution_fee: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Net Revenue"
-                      type="number"
-                      value={newTitle.previous_net_revenue}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_net_revenue: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Amount Paid"
-                      type="number"
-                      value={newTitle.previous_amount_paid}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_amount_paid: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Balance Due"
-                      type="number"
-                      value={newTitle.previous_balance_due}
-                      onChange={(e) => setNewTitle({ ...newTitle, previous_balance_due: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowAddTitle(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateTitle}>
-                  Create Title
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Title Modal */}
-      {showEditTitle && editingTitle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Edit Title: {editingTitle.title_name}</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Title Name"
-                    value={editTitle.title_name}
-                    onChange={(e) => setEditTitle({ ...editTitle, title_name: e.target.value })}
-                    placeholder="Enter title name"
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Content Type
-                    </label>
-                    <select
-                      value={editTitle.content_type}
-                      onChange={(e) => setEditTitle({ ...editTitle, content_type: e.target.value as 'movie' | 'series' | 'episode' })}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="movie">Movie</option>
-                      <option value="series">Series</option>
-                      <option value="episode">Episode</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filmmaker
-                  </label>
-                  <select
-                    value={editTitle.filmmaker_id}
-                    onChange={(e) => setEditTitle({ ...editTitle, filmmaker_id: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a filmmaker</option>
-                    {filmmakers.map((filmmaker) => (
-                      <option key={filmmaker.id} value={filmmaker.id}>
-                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Genre"
-                    value={editTitle.genre}
-                    onChange={(e) => setEditTitle({ ...editTitle, genre: e.target.value })}
-                    placeholder="e.g., Drama, Comedy"
-                  />
-                  <Input
-                    label="Release Date"
-                    type="date"
-                    value={editTitle.release_date}
-                    onChange={(e) => setEditTitle({ ...editTitle, release_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Input
-                    label="Duration (minutes)"
-                    type="number"
-                    value={editTitle.duration_minutes}
-                    onChange={(e) => setEditTitle({ ...editTitle, duration_minutes: e.target.value })}
-                    placeholder="120"
-                  />
-                  <Input
-                    label="Rating"
-                    value={editTitle.rating}
-                    onChange={(e) => setEditTitle({ ...editTitle, rating: e.target.value })}
-                    placeholder="PG-13, R, etc."
-                  />
-                  <Input
-                    label="Company Distribution %"
-                    type="number"
-                    value={editTitle.distribution_percentage}
-                    onChange={(e) => setEditTitle({ ...editTitle, distribution_percentage: e.target.value })}
-                    placeholder="25"
-                  />
-                </div>
-
-                <Input
-                  label="Description"
-                  value={editTitle.description}
-                  onChange={(e) => setEditTitle({ ...editTitle, description: e.target.value })}
-                  placeholder="Brief description of the title"
-                />
-
-                <div className="border-t pt-4">
-                  <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Previous Gross Amount"
-                      type="number"
-                      value={editTitle.previous_gross_amount}
-                      onChange={(e) => setEditTitle({ ...editTitle, previous_gross_amount: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Expenses"
-                      type="number"
-                      value={editTitle.previous_expenses}
-                      onChange={(e) => setEditTitle({ ...editTitle, previous_expenses: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Distribution Fee"
-                      type="number"
-                      value={editTitle.previous_distribution_fee}
-                      onChange={(e) => setEditTitle({ ...editTitle, previous_distribution_fee: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Net Revenue"
-                      type="number"
-                      value={editTitle.previous_net_revenue}
-                      onChange={(e) => setEditTitle({ ...editTitle, previous_net_revenue: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Amount Paid"
-                      type="number"
-                      value={editTitle.previous_amount_paid}
-                      onChange={(e) => setEditTitle({ ...editTitle, previous_amount_paid: e.target.value })}
-                      placeholder="0.00"
-                    />
-                    <Input
-                      label="Previous Balance Due"
-                      type="number"
-                      value={editTitle.previous_balance_due}
-                      onChange={(e) => setEditTitle({ ...editTitle, previous_balance_due: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShowEditTitle(false);
-                    setEditingTitle(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateTitle}>
-                  Update Title
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Filmmaker Modal */}
-      {showAddFilmmaker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Add New Filmmaker</h3>
-              <div className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  value={newFilmmaker.email}
-                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, email: e.target.value })}
-                  placeholder="filmmaker@example.com"
-                />
-                <Input
-                  label="First Name"
-                  value={newFilmmaker.first_name}
-                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, first_name: e.target.value })}
-                  placeholder="John"
-                />
-                <Input
-                  label="Last Name"
-                  value={newFilmmaker.last_name}
-                  onChange={(e) => setNewFilmmaker({ ...newFilmmaker, last_name: e.target.value })}
-                  placeholder="Doe"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowAddFilmmaker(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateFilmmaker}>
-                  Create Filmmaker
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Payment Modal */}
-      {showAddPayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Add New Payment</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title
-                  </label>
-                  <select
-                    value={newPayment.title_id}
-                    onChange={(e) => setNewPayment({ ...newPayment, title_id: e.target.value })}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a title</option>
-                    {titles.map((title) => (
-                      <option key={title.id} value={title.id}>
-                        {title.title_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Input
-                  label="Platform"
-                  value={newPayment.platform}
-                  onChange={(e) => setNewPayment({ ...newPayment, platform: e.target.value })}
-                  placeholder="Netflix, Amazon Prime, etc."
-                />
-                <Input
-                  label="Outlet (Optional)"
-                  value={newPayment.outlet}
-                  onChange={(e) => setNewPayment({ ...newPayment, outlet: e.target.value })}
-                  placeholder="Specific outlet or region"
-                />
-                <Input
-                  label="Payment Date"
-                  type="date"
-                  value={newPayment.payment_date}
-                  onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
-                />
-                <Input
-                  label="Gross Amount"
-                  type="number"
-                  value={newPayment.gross_amount}
-                  onChange={(e) => setNewPayment({ ...newPayment, gross_amount: e.target.value })}
-                  placeholder="1000.00"
-                />
-                <Input
-                  label="Notes (Optional)"
-                  value={newPayment.notes}
-                  onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
-                  placeholder="Additional notes about this payment"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowAddPayment(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleAddPayment}>
-                  Add Payment
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+     {/* Add Payment Modal */}
+     {showAddPayment && (
+       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+         <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+           <div className="flex items-center justify-between p-6 border-b border-gray-200">
+             <h2 className="text-xl font-semibold text-gray-900">Add Streaming Payment</h2>
+             <Button
+               variant="secondary"
+               size="sm"
+               onClick={() => setShowAddPayment(false)}
+               className="flex items-center space-x-1"
+             >
+               <X className="h-4 w-4" />
+             </Button>
+           </div>
+           <div className="p-6 space-y-4">
+             <div>
+               <label className="block text-sm font-medium text-gray-700 mb-1">
+                 Title
+               </label>
+               <select
+                 value={newPayment.title_id}
+                 onChange={(e) => setNewPayment({ ...newPayment, title_id: e.target.value })}
+                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+               >
+                 <option value="">Select Title</option>
+                 {titles.map((title) => (
+                   <option key={title.id} value={title.id}>
+                     {title.title_name}
+                   </option>
+                 ))}
+               </select>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <Input
+                 label="Platform"
+                 value={newPayment.platform}
+                 onChange={(e) => setNewPayment({ ...newPayment, platform: e.target.value })}
+                 placeholder="Netflix, Hulu, etc."
+               />
+               <Input
+                 label="Payment Date"
+                 type="date"
+                 value={newPayment.payment_date}
+                 onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
+               />
+             </div>
+             <Input
+               label="Gross Amount"
+               type="number"
+               value={newPayment.gross_amount}
+               onChange={(e) => setNewPayment({ ...newPayment, gross_amount: parseFloat(e.target.value) || 0 })}
+               placeholder="1000.00"
+             />
+             <Input
+               label="Distribution Percentage"
+               type="number"
+               value={newPayment.distribution_percentage}
+               onChange={(e) => setNewPayment({ ...newPayment, distribution_percentage: parseFloat(e.target.value) || 50 })}
+               placeholder="50"
+             />
+             <Input
+               label="Notes (Optional)"
+               value={newPayment.notes}
+               onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+               placeholder="Additional notes"
+             />
+           </div>
+           <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+             <Button
+               variant="secondary"
+               onClick={() => setShowAddPayment(false)}
+             >
+               Cancel
+             </Button>
+             <Button onClick={handleAddPayment}>
+               Add Payment
+             </Button>
+           </div>
+         </div>
+       </div>
+     )}
+   </>
+ );
 }
