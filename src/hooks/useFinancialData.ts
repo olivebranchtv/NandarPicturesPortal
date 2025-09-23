@@ -191,7 +191,7 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         const totalExpenses = historicalTotals.totalExpenses + streamingTotals.totalExpenses;
         const netIncome = totalRevenue - totalExpenses;
         const totalPaid = historicalTotals.totalPaid;
-        const balanceDue = historicalTotals.balanceDue + (netIncome - totalPaid);
+        const balanceDue = Math.max(0, netIncome - totalPaid);
         const netProfitMargin = totalRevenue > 0 ? (netIncome / totalRevenue) * 100 : 0;
 
         setFinancialData({

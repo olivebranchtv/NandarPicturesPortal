@@ -239,7 +239,10 @@ export function FilmmakerDashboard() {
       // Calculate final stats
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
       const totalPaidWithHistory = currentPaid + historicalTotals.historicalPaid;
-      const availableBalance = balanceData?.available_balance || 0;
+      
+      // Calculate available balance as the difference between net income and total paid
+      const totalNetIncome = historicalTotals.historicalNet + streamingTotals.streamingNet;
+      const availableBalance = Math.max(0, totalNetIncome - totalPaidWithHistory);
 
       const finalStats = {
         totalTitles: filmmakertitles.length,
