@@ -346,14 +346,21 @@ export function AdminDashboard() {
       const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 20;
       const filmmakertPercentage = 100 - companyPercentage;
 
+      console.log('Updating distribution settings:', {
+        title_id: editingTitle.id,
+        company_percentage: companyPercentage,
+        filmmaker_percentage: filmmakerPercentage
+      });
+
       const { error: distributionError } = await supabase
         .from('title_distribution_settings')
-        .upsert({
+        .upsert([{
           title_id: editingTitle.id,
           company_percentage: companyPercentage,
-          filmmaker_percentage: filmmakertPercentage
-        }, {
-          onConflict: 'title_id'
+          filmmaker_percentage: filmmakerPercentage,
+        }], {
+          onConflict: 'title_id',
+          ignoreDuplicates: false
         });
 
       if (distributionError) {
