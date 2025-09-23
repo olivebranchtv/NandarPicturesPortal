@@ -853,7 +853,6 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
       )}
-      </>
 
       {/* Add Title Modal */}
       {showAddTitle && (
