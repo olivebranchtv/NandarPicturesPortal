@@ -37,12 +37,15 @@ export function FilmmakerDashboard() {
     if (!profile?.id) return;
 
     try {
+      console.log('Fetching data for filmmaker ID:', profile.id);
+      
       // Fetch filmmaker's titles
       const { data: titlesData, error: titlesError } = await supabase
         .from('content')
         .select('*')
         .eq('filmmaker_id', profile.id);
 
+      console.log('Titles query result:', { titlesData, titlesError });
       if (titlesError) throw titlesError;
       setTitles(titlesData || []);
 
@@ -53,6 +56,7 @@ export function FilmmakerDashboard() {
         .eq('filmmaker_id', profile.id)
         .single();
 
+      console.log('Balance query result:', { balanceData, balanceError });
       if (balanceError && balanceError.code !== 'PGRST116') throw balanceError;
       setBalance(balanceData);
 
@@ -66,10 +70,11 @@ export function FilmmakerDashboard() {
         .eq('content.filmmaker_id', profile.id)
         .order('payment_date', { ascending: false });
 
+      console.log('Streaming payments query result:', { paymentsData, paymentsError });
       if (paymentsError) throw paymentsError;
       
-      // Process historical data from content table
-      const historicalPayments = contentData?.filter(content => 
+      // Process historical data from titles
+      const historicalPayments = titlesData?.filter(content => 
         content.previous_gross_amount > 0 || content.previous_expenses > 0
       ).map(content => ({
         id: `historical-${content.id}`,
@@ -89,23 +94,19 @@ export function FilmmakerDashboard() {
         }
       })) || [];
 
+      console.log('Historical payments processed:', historicalPayments);
+
       // Combine streaming payments with historical data
       const allPayments = [...(paymentsData || []), ...historicalPayments];
       setStreamingPayments(allPayments);
 
-      // Fetch filmmaker's content with historical data for display
-      const { data: contentData, error: contentError } = await supabase
-        .from('content')
-        .select('*')
-        .eq('filmmaker_id', profile.id);
-
-      if (contentError) throw contentError;
-
       // Calculate historical totals for display
-      const historicalTotals = contentData?.reduce((acc, content) => ({
+      const historicalTotals = titlesData?.reduce((acc, content) => ({
         historicalEarned: acc.historicalEarned + (content.previous_gross_amount || 0),
         historicalPaid: acc.historicalPaid + (content.previous_amount_paid || 0)
       }), { historicalEarned: 0, historicalPaid: 0 }) || { historicalEarned: 0, historicalPaid: 0 };
+
+      console.log('Historical totals calculated:', historicalTotals);
 
       // Fetch payment requests to calculate available balance
       const { data: requestsData, error: requestsError } = await supabase
@@ -125,12 +126,15 @@ export function FilmmakerDashboard() {
       const currentPaid = balanceData?.total_paid || 0;
       const totalPaidWithHistory = currentPaid + historicalTotals.historicalPaid;
 
-      setStats({
+      const finalStats = {
         totalTitles: titlesData?.length || 0,
         totalEarned: totalEarnedWithHistory,
         totalPaid: totalPaidWithHistory,
         availableBalance: balanceData?.available_balance || 0,
-      });
+      };
+      
+      console.log('Final stats calculated:', finalStats);
+      setStats(finalStats);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -307,9 +311,33 @@ export function FilmmakerDashboard() {
       {/* Streaming Payments Table */}
       <Card>
         <CardHeader>
-          <h3 className="text-lg font-semibold">Revenue & Payment History</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Revenue & Payment History</h3>
+            <div className="text-sm text-gray-500">
+              {titles.length} title{titles.length !== 1 ? 's' : ''} • {streamingPayments.length} payment{streamingPayments.length !== 1 ? 's' : ''}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Debug info for troubleshooting */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
+              <p><strong>Debug Info:</strong></p>
+              <p>Filmmaker ID: {profile?.id}</p>
+              <p>Titles found: {titles.length}</p>
+              <p>Streaming payments: {streamingPayments.filter(p => !p.id.toString().startsWith('historical')).length}</p>
+              <p>Historical payments: {streamingPayments.filter(p => p.id.toString().startsWith('historical')).length}</p>
+              {titles.length > 0 && (
+                <div className="mt-2">
+                  <p><strong>Titles:</strong></p>
+                  {titles.map(title => (
+                    <p key={title.id}>- {title.title_name} (ID: {title.id})</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
           {streamingPayments.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -368,6 +396,11 @@ export function FilmmakerDashboard() {
               <p className="text-gray-500">
                 Revenue and payment history will appear here
               </p>
+              {titles.length === 0 && (
+                <p className="text-sm text-red-500 mt-2">
+                  No titles found for this filmmaker account
+                </p>
+              )}
             </div>
           )}
         </CardContent>
