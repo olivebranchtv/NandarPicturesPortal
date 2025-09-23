@@ -71,7 +71,7 @@ export function AdminDashboard() {
     duration_minutes: '',
     rating: '',
     filmmaker_id: '',
-    distribution_percentage: '20',
+    distribution_percentage: '25',
     previous_gross_amount: '',
     previous_expenses: '',
     previous_distribution_fee: '',
