@@ -123,14 +123,16 @@ export function FilmmakerDashboard() {
       const { data: balanceData, error: balanceError } = await supabase
         .from('filmmaker_balances')
         .select('*')
-        .eq('filmmaker_id', profile.id)
-        .single();
+        .eq('filmmaker_id', profile.id);
 
       console.log('Balance query result:', { balanceData, balanceError });
-      if (balanceError && balanceError.code !== 'PGRST116') {
+      if (balanceError) {
         console.error('Error fetching balance:', balanceError);
       }
-      setBalance(balanceData);
+      
+      // Handle the case where no balance record exists yet
+      const balance = balanceData && balanceData.length > 0 ? balanceData[0] : null;
+      setBalance(balance);
 
       // Fetch streaming payments for filmmaker's titles
       console.log('Step 3: Fetching streaming payments...');
