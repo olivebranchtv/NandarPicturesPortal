@@ -392,252 +392,254 @@ export function AdminDashboard() {
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
         <FinancialDashboard userRole="admin" />
-      {/* Debug Information */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold text-red-600">Debug Information</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p><strong>Filmmakers:</strong> {filmmakers.length}</p>
-                <p><strong>Titles:</strong> {titles.length}</p>
-                <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
-                <p><strong>Streaming Payments:</strong> {streamingPayments.length}</p>
-              </div>
-              <div>
-                <p><strong>Sample Filmmaker:</strong> {filmmakers[0]?.email || 'None'}</p>
-                <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
-                <p><strong>Admin Role:</strong> {profile?.role}</p>
-                <p><strong>Admin ID:</strong> {profile?.id}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Financial Performance Chart */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Financial Performance</h3>
-          </CardHeader>
-          <CardContent>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="title" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
-                  <Bar dataKey="revenue" fill="#10B981" name="Total Revenue" />
-                  <Bar dataKey="expenses" fill="#EF4444" name="Total Expenses" />
-                  <Bar dataKey="net" fill="#3B82F6" name="Net Income" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-gray-500">
-                <div className="text-center">
-                  <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No financial data available</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Recent Activity</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {paymentRequests.slice(0, 5).map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+      ) : (
+        <>
+          {/* Debug Information */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold text-red-600">Debug Information</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="font-medium text-gray-900">
-                      Payment Request: ${request.amount_requested.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {request.filmmaker?.first_name} {request.filmmaker?.last_name} • {new Date(request.requested_at).toLocaleDateString()}
-                    </p>
+                    <p><strong>Filmmakers:</strong> {filmmakers.length}</p>
+                    <p><strong>Titles:</strong> {titles.length}</p>
+                    <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
+                    <p><strong>Streaming Payments:</strong> {streamingPayments.length}</p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {request.status}
-                    </span>
-                    {request.status === 'pending' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprovePayment(request.id, request.amount_requested)}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                    )}
+                  <div>
+                    <p><strong>Sample Filmmaker:</strong> {filmmakers[0]?.email || 'None'}</p>
+                    <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
+                    <p><strong>Admin Role:</strong> {profile?.role}</p>
+                    <p><strong>Admin ID:</strong> {profile?.id}</p>
                   </div>
                 </div>
-              ))}
-              {paymentRequests.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p>No recent activity</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filmmakers Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">All Filmmakers</h3>
-            <div className="text-sm text-gray-500">
-              {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filmmakers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Titles
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Joined
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filmmakers.map((filmmaker) => {
-                    const filmmakertitles = titles.filter(title => title.filmmaker_id === filmmaker.id);
-                    return (
-                      <tr key={filmmaker.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {filmmaker.first_name} {filmmaker.last_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {filmmaker.email}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {filmmakertitles.length}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(filmmaker.created_at).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No filmmakers yet</h3>
-              <p className="text-gray-500">
-                Add your first filmmaker to get started
-              </p>
-            </div>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Titles Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">All Titles</h3>
-            <div className="text-sm text-gray-500">
-              {titles.length} title{titles.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {titles.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Filmmaker
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Revenue
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {titles.map((title) => (
-                    <tr key={title.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {title.title_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {title.content_type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {title.filmmaker?.first_name} {title.filmmaker?.last_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Financial Performance Chart */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Financial Performance</h3>
+              </CardHeader>
+              <CardContent>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="title" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
+                      <Bar dataKey="revenue" fill="#10B981" name="Total Revenue" />
+                      <Bar dataKey="expenses" fill="#EF4444" name="Total Expenses" />
+                      <Bar dataKey="net" fill="#3B82F6" name="Net Income" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-64 text-gray-500">
+                    <div className="text-center">
+                      <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p>No financial data available</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold">Recent Activity</h3>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {paymentRequests.slice(0, 5).map((request) => (
+                    <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          Payment Request: ${request.amount_requested.toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {request.filmmaker?.first_name} {request.filmmaker?.last_name} • {new Date(request.requested_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          title.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          title.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          {title.status}
+                          {request.status}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${title.revenue_total.toLocaleString()}
-                      </td>
-                    </tr>
+                        {request.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprovePayment(request.id, request.amount_requested)}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No titles yet</h3>
-              <p className="text-gray-500">
-                Add your first title to get started
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-        </>
-      )}
+                  {paymentRequests.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                      <p>No recent activity</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
+          {/* Filmmakers Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">All Filmmakers</h3>
+                <div className="text-sm text-gray-500">
+                  {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {filmmakers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Titles
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Joined
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filmmakers.map((filmmaker) => {
+                        const filmmakertitles = titles.filter(title => title.filmmaker_id === filmmaker.id);
+                        return (
+                          <tr key={filmmaker.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {filmmaker.first_name} {filmmaker.last_name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {filmmaker.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {filmmakertitles.length}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(filmmaker.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No filmmakers yet</h3>
+                  <p className="text-gray-500">
+                    Add your first filmmaker to get started
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Titles Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">All Titles</h3>
+                <div className="text-sm text-gray-500">
+                  {titles.length} title{titles.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {titles.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Title
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Filmmaker
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Distribution
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Revenue
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {titles.map((title) => (
+                        <tr key={title.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {title.title_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {title.content_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {title.filmmaker?.first_name} {title.filmmaker?.last_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              title.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              title.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {title.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {title.title_distribution_settings && title.title_distribution_settings.length > 0 
+                              ? `${title.title_distribution_settings[0].company_percentage}% / ${title.title_distribution_settings[0].filmmaker_percentage}%`
+                              : 'Not set'
+                            }
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${title.revenue_total.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleEditTitle(title)}
+                              className="flex items-center space-x-1"
+                            >
       {/* Add Filmmaker Modal */}
       {showAddFilmmaker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
