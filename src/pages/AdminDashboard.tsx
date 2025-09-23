@@ -419,6 +419,34 @@ export function AdminDashboard() {
             </Card>
           )}
 
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              icon={Users}
+              title="Total Filmmakers"
+              value={stats.totalUsers}
+              color="bg-blue-600"
+            />
+            <StatCard
+              icon={Film}
+              title="Total Titles"
+              value={stats.totalTitles}
+              color="bg-green-600"
+            />
+            <StatCard
+              icon={DollarSign}
+              title="Total Revenue"
+              value={`$${stats.totalRevenue.toLocaleString()}`}
+              color="bg-purple-600"
+            />
+            <StatCard
+              icon={Clock}
+              title="Pending Requests"
+              value={stats.pendingRequests}
+              color="bg-orange-600"
+            />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Financial Performance Chart */}
             <Card>
