@@ -345,7 +345,7 @@ export function AdminDashboard() {
         .upsert({
           title_id: editingTitle.id,
           company_percentage: companyPercentage,
-          filmmaker_percentage: filmmakertPercentage,
+          filmmaker_percentage: filmmakertPercentage
         }, {
           onConflict: 'title_id'
         });
