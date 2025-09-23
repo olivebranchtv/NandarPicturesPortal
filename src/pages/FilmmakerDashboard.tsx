@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface FilmmakerStats {
   totalTitles: number;
@@ -15,6 +16,7 @@ interface FilmmakerStats {
 
 export function FilmmakerDashboard() {
   const { profile } = useAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'financial'>('overview');
   const [stats, setStats] = useState<FilmmakerStats>({
     totalTitles: 0,
     totalEarned: 0,
@@ -240,11 +242,42 @@ export function FilmmakerDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Filmmaker Dashboard</h1>
-        <div className="text-sm text-gray-500">
+        <div className="flex items-center space-x-4">
+          {/* Tab Navigation */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('financial')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'financial'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Financial
+            </button>
+          </div>
+          
+          <div className="text-sm text-gray-500">
           Welcome back, {profile?.first_name || 'Filmmaker'}!
+          </div>
         </div>
       </div>
 
+      {/* Render content based on active tab */}
+      {activeTab === 'financial' ? (
+        <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
+      ) : (
+        <>
       {/* Debug Information */}
       {process.env.NODE_ENV === 'development' && (
         <Card>
@@ -493,6 +526,8 @@ export function FilmmakerDashboard() {
             </div>
           </CardContent>
         </Card>
+      )}
+        </>
       )}
     </div>
   );

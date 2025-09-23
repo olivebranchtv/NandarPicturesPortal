@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { FinancialDashboard } from '../components/FinancialDashboard';
 
 interface AdminStats {
   totalUsers: number;
@@ -22,6 +23,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'financial'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
@@ -319,7 +321,31 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="flex space-x-3">
+        <div className="flex items-center space-x-3">
+          {/* Tab Navigation */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('financial')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'financial'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Financial
+            </button>
+          </div>
+          
           <Button onClick={() => setShowAddTitle(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Title
@@ -335,6 +361,11 @@ export function AdminDashboard() {
         </div>
       </div>
 
+      {/* Render content based on active tab */}
+      {activeTab === 'financial' ? (
+        <FinancialDashboard userId={profile?.id} userRole="admin" />
+      ) : (
+        <>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
@@ -386,6 +417,8 @@ export function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+      )}
+        </>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
