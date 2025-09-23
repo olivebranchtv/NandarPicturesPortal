@@ -23,7 +23,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'financial'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
