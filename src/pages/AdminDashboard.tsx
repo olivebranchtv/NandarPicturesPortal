@@ -190,7 +190,7 @@ export function AdminDashboard() {
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('content')
         .insert({
           title_name: newTitle.title_name,
@@ -208,7 +208,8 @@ export function AdminDashboard() {
           previous_net_revenue: newTitle.previous_net_revenue ? parseFloat(newTitle.previous_net_revenue) : 0,
           previous_amount_paid: newTitle.previous_amount_paid ? parseFloat(newTitle.previous_amount_paid) : 0,
           previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
-        });
+        })
+        .select();
 
       if (error) {
         console.error('Error creating title:', error);
@@ -668,6 +669,28 @@ export function AdminDashboard() {
                               onClick={() => handleEditTitle(title)}
                               className="flex items-center space-x-1"
                             >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No titles yet</h3>
+                  <p className="text-gray-500">
+                    Add your first title to get started
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
       {/* Add Filmmaker Modal */}
       {showAddFilmmaker && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
