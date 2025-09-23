@@ -607,7 +607,7 @@ export function AdminDashboard() {
               color="bg-orange-600"
             />
           </div>
-        </>
+
           {/* Revenue Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <Card>
