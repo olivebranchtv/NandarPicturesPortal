@@ -57,7 +57,7 @@ export function PaymentHistoryTable({
           title_distribution_settings(*)
         `)
         .eq('id', editingPayment.title_id)
-        .single();
+        .maybeSingle();
 
       if (titleError) throw titleError;
 

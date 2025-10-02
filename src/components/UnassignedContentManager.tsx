@@ -138,7 +138,7 @@ export function UnassignedContentManager({ onUpdate }: UnassignedContentManagerP
           status: 'approved',
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (titleError) throw titleError;
 

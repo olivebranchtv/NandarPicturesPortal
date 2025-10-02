@@ -45,13 +45,13 @@ export function useAuth() {
       setLoading(false);
       return;
     }
-    
+
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setProfile(data);

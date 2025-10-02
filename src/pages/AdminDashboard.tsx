@@ -245,7 +245,7 @@ export function AdminDashboard() {
           previous_balance_due: newTitle.previous_balance_due ? parseFloat(newTitle.previous_balance_due) : 0,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error creating title:', error);
@@ -424,7 +424,7 @@ export function AdminDashboard() {
           title_distribution_settings(*)
         `)
         .eq('id', newPayment.title_id)
-        .single();
+        .maybeSingle();
 
       if (titleError) throw titleError;
 
