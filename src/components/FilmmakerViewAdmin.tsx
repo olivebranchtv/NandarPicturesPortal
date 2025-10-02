@@ -52,7 +52,7 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
 
         const streamingRes = await supabase!
           .from('streaming_payments')
-          .select('*, content!inner(title_name)')
+          .select('*, content!streaming_payments_title_id_fkey(title_name)')
           .in('title_id', titleIds)
           .order('payment_date', { ascending: false });
 

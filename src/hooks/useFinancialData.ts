@@ -213,7 +213,7 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
           .from('streaming_payments')
           .select(`
             *,
-            content(title_name, filmmaker_id)
+            content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
           `);
 
         const dateFilter = getDateFilter();
