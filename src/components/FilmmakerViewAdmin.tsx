@@ -40,24 +40,23 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
       let allPayments: any[] = [];
 
       if (titleIds.length > 0) {
-        const [paymentsRes, streamingRes] = await Promise.all([
-          supabase!
-            .from('payments')
-            .select('*, content:content_id(title_name)')
-            .in('content_id', titleIds)
-            .order('payment_date', { ascending: false }),
-          supabase!
-            .from('streaming_payments')
-            .select('*, content!inner(title_name)')
-            .in('title_id', titleIds)
-            .order('payment_date', { ascending: false }),
-        ]);
+        const paymentsRes = await supabase!
+          .from('payments')
+          .select('*, content:content_id(title_name)')
+          .in('content_id', titleIds)
+          .order('payment_date', { ascending: false });
 
-        if (paymentsRes.data) {
+        if (paymentsRes.data && !paymentsRes.error) {
           allPayments = [...allPayments, ...paymentsRes.data];
         }
 
-        if (streamingRes.data) {
+        const streamingRes = await supabase!
+          .from('streaming_payments')
+          .select('*, content!inner(title_name)')
+          .in('title_id', titleIds)
+          .order('payment_date', { ascending: false });
+
+        if (streamingRes.data && !streamingRes.error) {
           allPayments = [...allPayments, ...streamingRes.data];
         }
       }
