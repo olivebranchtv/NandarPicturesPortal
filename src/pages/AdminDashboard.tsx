@@ -13,6 +13,7 @@ import { UnassignedContentManager } from '../components/UnassignedContentManager
 import { PaymentHistoryAdmin } from '../components/PaymentHistoryAdmin';
 import { FilmmakerViewAdmin } from '../components/FilmmakerViewAdmin';
 import { BulkTitleImport } from '../components/BulkTitleImport';
+import { AdminUserManagement } from '../components/AdminUserManagement';
 
 interface AdminStats {
   totalUsers: number;
@@ -31,7 +32,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests' | 'admins'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
@@ -611,6 +612,16 @@ export function AdminDashboard() {
             >
               Requests
             </button>
+            <button
+              onClick={() => setActiveTab('admins')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'admins'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Admins
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1007,6 +1018,8 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+      ) : activeTab === 'admins' ? (
+        <AdminUserManagement />
       ) : (
         <>
           {/* Stats Cards */}

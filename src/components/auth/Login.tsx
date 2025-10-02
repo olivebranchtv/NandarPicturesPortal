@@ -85,18 +85,32 @@ export function Login({ onToggleMode }: LoginProps) {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <button
-                onClick={onToggleMode}
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                Sign up here
-              </button>
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              Admin users: Please sign up first to create your account
-            </p>
+            {userType === 'creator' && (
+              <p className="text-sm text-gray-600">
+                Don't have an account?{' '}
+                <button
+                  onClick={onToggleMode}
+                  className="font-medium text-blue-600 hover:text-blue-500"
+                >
+                  Sign up here
+                </button>
+              </p>
+            )}
+            {userType === 'admin' && (
+              <p className="text-xs text-gray-500">
+                Admin accounts can only be created by existing administrators.
+              </p>
+            )}
+            {userType === 'creator' && (
+              <p className="text-xs text-gray-500 mt-4">
+                Admin? <a href="/admin/login" className="text-blue-600 hover:text-blue-500">Sign in here</a>
+              </p>
+            )}
+            {userType === 'admin' && (
+              <p className="text-xs text-gray-500 mt-4">
+                Creator? <a href="/login" className="text-blue-600 hover:text-blue-500">Sign in here</a>
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

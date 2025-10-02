@@ -96,8 +96,8 @@ export function useAuth() {
 
   const signUp = async (email: string, password: string) => {
     if (!supabase) return { error: new Error('Supabase not configured') };
-    
-    // Check if this is an admin email
+
+    // Check if this is an admin email - do NOT allow admin signup through public signup
     const adminEmails = [
       'nancycriss@yahoo.com',
       'sherri@olivebranch.tv',
@@ -105,16 +105,23 @@ export function useAuth() {
       'info@olivebranchfilmstudios.com',
       'mail@nandarpictures.com'
     ];
-    
-    const isAdmin = adminEmails.includes(email.toLowerCase()) || 
+
+    const isAdmin = adminEmails.includes(email.toLowerCase()) ||
                    email.toLowerCase().endsWith('@nandarpictures.com');
-    
+
+    if (isAdmin) {
+      return {
+        error: new Error('Admin accounts cannot be created through public signup. Please contact an existing administrator to create your admin account.')
+      };
+    }
+
+    // Only create filmmaker accounts through public signup
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          role: isAdmin ? 'admin' : 'filmmaker'
+          role: 'filmmaker'
         }
       }
     });
