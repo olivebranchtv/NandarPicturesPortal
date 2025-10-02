@@ -1,17 +1,25 @@
--- COMPLETE FIX FOR SIGNIN ISSUE
--- The key insight: SECURITY DEFINER functions STILL respect RLS unless we disable it
--- We need to temporarily disable RLS inside the function
+-- COMPLETE FIX - Drop all existing policies first, then rebuild
 
--- Step 1: Drop ALL existing INSERT policies on users table
-DROP POLICY IF EXISTS "Enable insert for authenticated users" ON users;
-DROP POLICY IF EXISTS "Allow authenticated user inserts" ON users;
+-- Step 1: Drop ALL existing policies on users table
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'users' AND schemaname = 'public')
+  LOOP
+    EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON users';
+  END LOOP;
+END $$;
 
--- Step 2: Create the trigger function that DISABLES RLS temporarily
+-- Step 2: Temporarily disable RLS on users table
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+
+-- Step 3: Recreate the trigger function with SECURITY DEFINER
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS trigger
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-LANGUAGE plpgsql
 AS $$
 DECLARE
   user_role text := 'filmmaker';
@@ -26,10 +34,7 @@ BEGIN
     user_role := 'admin';
   END IF;
 
-  -- Disable RLS for this transaction, insert, then re-enable
-  -- This is safe because SECURITY DEFINER runs with function owner's privileges
-  PERFORM set_config('request.jwt.claims', '{}', true);
-
+  -- Insert the user profile
   INSERT INTO public.users (id, email, role, created_at, updated_at)
   VALUES (NEW.id, NEW.email, user_role, now(), now())
   ON CONFLICT (id) DO UPDATE
@@ -40,25 +45,56 @@ BEGIN
   RETURN NEW;
 EXCEPTION
   WHEN OTHERS THEN
-    -- Log the error but don't fail the auth.users insert
-    RAISE WARNING 'Could not create user profile: %', SQLERRM;
+    RAISE WARNING 'Failed to create user profile: %', SQLERRM;
     RETURN NEW;
 END;
 $$;
 
--- Step 3: Make sure function is owned by postgres (superuser)
+-- Step 4: Set function owner to postgres
 ALTER FUNCTION handle_new_user() OWNER TO postgres;
 
--- Step 4: Recreate the trigger
+-- Step 5: Recreate the trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION handle_new_user();
 
--- Step 5: Create a permissive INSERT policy
--- Allow any authenticated user to insert (trigger will handle the actual insert)
-CREATE POLICY "Users can insert own profile" ON users
+-- Step 6: Re-enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+-- Step 7: Create fresh policies
+CREATE POLICY "Users can read own profile" ON users
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON users
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Allow profile creation on signup" ON users
   FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Admins can read all users" ON users
+  FOR SELECT
+  TO authenticated
+  USING (
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+  );
+
+CREATE POLICY "Admins can update all users" ON users
+  FOR UPDATE
+  TO authenticated
+  USING (
+    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
+  );
+
+-- Step 8: Grant permissions
+GRANT ALL ON users TO postgres;
+GRANT SELECT, INSERT, UPDATE, DELETE ON users TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON users TO service_role;
