@@ -37,13 +37,19 @@ function parseAmount(value: any): number {
   if (value === null || value === undefined || value === '') return 0;
 
   if (typeof value === 'number') {
+    if (isNaN(value) || !isFinite(value)) return 0;
     return Math.round(value * 100) / 100;
   }
 
   if (typeof value === 'string') {
-    const cleaned = value.replace(/[$,\s]/g, '');
+    const cleaned = value.trim().replace(/[$,\s]/g, '');
+
+    if (cleaned === '' || cleaned === '-') return 0;
+
     const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
+    if (isNaN(parsed) || !isFinite(parsed)) return 0;
+
+    return Math.round(parsed * 100) / 100;
   }
 
   return 0;
@@ -58,7 +64,7 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
     const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
 
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false });
+    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: true, defval: null });
 
     for (let i = 1; i < jsonData.length; i++) {
       const row = jsonData[i] as any[];
@@ -91,7 +97,16 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       }
 
       if (grossAmount <= 0 || isNaN(grossAmount)) {
-        errors.push(`Row ${i + 1}: Invalid amount (Column B: ${row[1] || 'empty'})`);
+        const rawValue = row[1];
+        const valueType = typeof rawValue;
+        console.log(`Row ${i + 1} parsing issue:`, {
+          rawValue,
+          valueType,
+          grossAmount,
+          isNaN: isNaN(grossAmount),
+          isLessThanOrEqualZero: grossAmount <= 0
+        });
+        errors.push(`Row ${i + 1}: Invalid amount (Column B: "${rawValue}" [${valueType}])`);
         continue;
       }
 
