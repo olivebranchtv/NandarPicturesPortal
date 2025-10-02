@@ -615,15 +615,23 @@ export function AdminDashboard() {
             Add Filmmaker
           </Button>
           {activeTab === 'payments' && (
-            <Button onClick={() => setShowPaymentUpload(true)}>
+            <>
+              <Button onClick={() => setShowPaymentUpload(true)} variant="secondary">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Payments
+              </Button>
+              <Button onClick={() => setShowAddPayment(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Payment
+              </Button>
+            </>
+          )}
+          {activeTab !== 'payments' && (
+            <Button onClick={() => setShowAddPayment(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Upload Payments
+              Add Payment
             </Button>
           )}
-          <Button onClick={() => setShowAddPayment(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Payment
-          </Button>
         </div>
       </div>
 
