@@ -209,8 +209,8 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
               <h4 className="text-sm font-medium text-blue-900 mb-2">File Format Requirements</h4>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>Column A: Payment Date</li>
-                <li>Column B: Gross Amount</li>
-                <li>Column H: Channel/Outlet</li>
+                <li>Column C: Gross Amount</li>
+                <li>Column G: Channel/Outlet</li>
                 <li>Column I: Title Name</li>
               </ul>
               <p className="text-xs text-blue-700 mt-2">
