@@ -148,7 +148,7 @@ export function FilmmakerDashboard() {
           .from('streaming_payments')
           .select(`
             *,
-            content!inner(title_name, filmmaker_id)
+            content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
           `)
           .in('title_id', titleIds)
           .order('payment_date', { ascending: false });
