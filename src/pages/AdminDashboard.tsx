@@ -18,6 +18,8 @@ interface AdminStats {
   totalUsers: number;
   totalTitles: number;
   totalRevenue: number;
+  totalPaidToFilmmakers: number;
+  companyProfit: number;
   pendingRequests: number;
 }
 
@@ -34,6 +36,8 @@ export function AdminDashboard() {
     totalUsers: 0,
     totalTitles: 0,
     totalRevenue: 0,
+    totalPaidToFilmmakers: 0,
+    companyProfit: 0,
     pendingRequests: 0,
   });
   const [filmmakers, setFilmmakers] = useState<User[]>([]);
@@ -164,16 +168,19 @@ export function AdminDashboard() {
 
       // Calculate stats
       const totalRevenue = (paymentsData || []).reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
+      const totalPaidToFilmmakers = (requestsData || []).filter(req => req.status === 'paid').reduce((sum, req) => sum + (req.amount_approved || req.amount_requested || 0), 0);
+      const companyProfit = totalRevenue * 0.25;
       const pendingRequests = (requestsData || []).filter(req => req.status === 'pending').length;
 
       const calculatedStats = {
         totalUsers: filmmakersData.length,
         totalTitles: titlesData?.length || 0,
         totalRevenue,
+        totalPaidToFilmmakers,
+        companyProfit,
         pendingRequests,
       };
 
-      console.log('Calculated stats:', calculatedStats);
       setStats(calculatedStats);
 
     } catch (error) {
@@ -1002,31 +1009,6 @@ export function AdminDashboard() {
         </Card>
       ) : (
         <>
-          {/* Debug Information */}
-          {process.env.NODE_ENV === 'development' && (
-            <Card>
-              <CardHeader>
-                <h3 className="text-lg font-semibold text-red-600">Debug Information</h3>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p><strong>Filmmakers:</strong> {filmmakers.length}</p>
-                    <p><strong>Titles:</strong> {titles.length}</p>
-                    <p><strong>Payment Requests:</strong> {paymentRequests.length}</p>
-                    <p><strong>Streaming Payments:</strong> {streamingPayments.length}</p>
-                  </div>
-                  <div>
-                    <p><strong>Sample Filmmaker:</strong> {filmmakers[0]?.email || 'None'}</p>
-                    <p><strong>Sample Title:</strong> {titles[0]?.title_name || 'None'}</p>
-                    <p><strong>Admin Role:</strong> {profile?.role}</p>
-                    <p><strong>Admin ID:</strong> {profile?.id}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
@@ -1045,7 +1027,28 @@ export function AdminDashboard() {
               icon={DollarSign}
               title="Total Revenue"
               value={`$${stats.totalRevenue.toLocaleString()}`}
+              color="bg-emerald-600"
+            />
+            <StatCard
+              icon={DollarSign}
+              title="Company Profit (25%)"
+              value={`$${stats.companyProfit.toLocaleString()}`}
+              color="bg-blue-600"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <StatCard
+              icon={DollarSign}
+              title="Paid to Filmmakers"
+              value={`$${stats.totalPaidToFilmmakers.toLocaleString()}`}
               color="bg-purple-600"
+            />
+            <StatCard
+              icon={DollarSign}
+              title="Net Profit/Loss"
+              value={`$${(stats.companyProfit - stats.totalPaidToFilmmakers).toLocaleString()}`}
+              color={(stats.companyProfit - stats.totalPaidToFilmmakers) >= 0 ? "bg-green-600" : "bg-red-600"}
             />
             <StatCard
               icon={Clock}
