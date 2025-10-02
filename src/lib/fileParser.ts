@@ -33,26 +33,29 @@ function parseDate(dateValue: any): string {
   return dateValue.toString();
 }
 
-function parseAmount(value: any): number {
-  if (value === null || value === undefined || value === '') return 0;
+function parseAmount(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
 
   if (typeof value === 'number') {
-    if (isNaN(value) || !isFinite(value)) return 0;
+    if (isNaN(value) || !isFinite(value)) return null;
     return Math.round(value * 100) / 100;
   }
 
   if (typeof value === 'string') {
-    const cleaned = value.trim().replace(/[$,\s]/g, '');
+    const cleaned = value.trim().replace(/[$,\s()]/g, '').replace(/[()]/g, '');
 
-    if (cleaned === '' || cleaned === '-') return 0;
+    if (cleaned === '' || cleaned === '-' || cleaned === 'N/A' || cleaned.toLowerCase() === 'n/a') return null;
 
+    const isNegative = value.includes('(') && value.includes(')');
     const parsed = parseFloat(cleaned);
-    if (isNaN(parsed) || !isFinite(parsed)) return 0;
 
-    return Math.round(parsed * 100) / 100;
+    if (isNaN(parsed) || !isFinite(parsed)) return null;
+
+    const result = Math.round(parsed * 100) / 100;
+    return isNegative ? -result : result;
   }
 
-  return 0;
+  return null;
 }
 
 export async function parseExcelFile(file: File): Promise<ParseResult> {
@@ -96,17 +99,9 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
         continue;
       }
 
-      if (grossAmount <= 0 || isNaN(grossAmount)) {
+      if (grossAmount === null || isNaN(grossAmount)) {
         const rawValue = row[1];
-        const valueType = typeof rawValue;
-        console.log(`Row ${i + 1} parsing issue:`, {
-          rawValue,
-          valueType,
-          grossAmount,
-          isNaN: isNaN(grossAmount),
-          isLessThanOrEqualZero: grossAmount <= 0
-        });
-        errors.push(`Row ${i + 1}: Invalid amount (Column B: "${rawValue}" [${valueType}])`);
+        errors.push(`Row ${i + 1}: Invalid amount (Column B: "${rawValue}")`);
         continue;
       }
 
@@ -144,6 +139,21 @@ export async function parseCSVFile(file: File): Promise<ParseResult> {
         try {
           const rows = results.data as any[][];
 
+          if (rows.length === 0) {
+            resolve({
+              success: false,
+              data: [],
+              errors: ['CSV file is empty'],
+            });
+            return;
+          }
+
+          const headerRow = rows[0];
+          let dateCol = 0;
+          let amountCol = 1;
+          let channelCol = 7;
+          let titleCol = 8;
+
           for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
 
@@ -151,23 +161,24 @@ export async function parseCSVFile(file: File): Promise<ParseResult> {
               continue;
             }
 
-            const paymentDate = parseDate(row[0]);
-            const grossAmount = parseAmount(row[1]);
-            const channel = row[7] ? String(row[7]).trim() : '';
-            const titleName = row[8] ? String(row[8]).trim() : '';
+            const paymentDate = parseDate(row[dateCol]);
+            const grossAmount = parseAmount(row[amountCol]);
+            const channel = row[channelCol] ? String(row[channelCol]).trim() : '';
+            const titleName = row[titleCol] ? String(row[titleCol]).trim() : '';
 
             if (!titleName) {
-              errors.push(`Row ${i + 1}: Missing title name`);
+              errors.push(`Row ${i + 1}: Missing title name (Column ${String.fromCharCode(65 + titleCol)})`);
               continue;
             }
 
             if (!paymentDate) {
-              errors.push(`Row ${i + 1}: Invalid or missing payment date`);
+              errors.push(`Row ${i + 1}: Invalid or missing payment date (Column ${String.fromCharCode(65 + dateCol)})`);
               continue;
             }
 
-            if (grossAmount <= 0) {
-              errors.push(`Row ${i + 1}: Invalid amount`);
+            if (grossAmount === null || isNaN(grossAmount)) {
+              const rawValue = row[amountCol];
+              errors.push(`Row ${i + 1}: Invalid amount "${rawValue}" (Column ${String.fromCharCode(65 + amountCol)})`);
               continue;
             }
 
