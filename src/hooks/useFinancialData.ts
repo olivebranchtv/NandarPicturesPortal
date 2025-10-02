@@ -58,13 +58,28 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
     }
   };
 
-  const processHistoricalData = (titles: Content[]) => {
-    return titles.reduce((acc, title) => ({
-      totalRevenue: acc.totalRevenue + (title.previous_gross_amount || 0),
-      totalExpenses: acc.totalExpenses + (title.previous_expenses || 0) + (title.previous_distribution_fee || 0),
-      totalPaid: acc.totalPaid + (title.previous_amount_paid || 0),
-      balanceDue: acc.balanceDue + (title.previous_balance_due || 0),
-    }), {
+  const processHistoricalData = (titles: Content[], userRole: 'admin' | 'filmmaker') => {
+    return titles.reduce((acc, title) => {
+      const grossAmount = title.previous_gross_amount || 0;
+      const netRevenue = title.previous_net_revenue || 0;
+
+      if (userRole === 'admin') {
+        const distributionFee = title.previous_distribution_fee || 0;
+        return {
+          totalRevenue: acc.totalRevenue + grossAmount,
+          totalExpenses: acc.totalExpenses + (grossAmount - distributionFee),
+          totalPaid: acc.totalPaid + (title.previous_amount_paid || 0),
+          balanceDue: acc.balanceDue + (title.previous_balance_due || 0),
+        };
+      } else {
+        return {
+          totalRevenue: acc.totalRevenue + grossAmount,
+          totalExpenses: acc.totalExpenses + (grossAmount - netRevenue),
+          totalPaid: acc.totalPaid + (title.previous_amount_paid || 0),
+          balanceDue: acc.balanceDue + (title.previous_balance_due || 0),
+        };
+      }
+    }, {
       totalRevenue: 0,
       totalExpenses: 0,
       totalPaid: 0,
@@ -72,19 +87,34 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
     });
   };
 
-  const processStreamingPayments = (payments: StreamingPayment[]) => {
-    return payments.reduce((acc, payment) => ({
-      totalRevenue: acc.totalRevenue + (payment.gross_amount || 0),
-      totalExpenses: acc.totalExpenses + ((payment.gross_amount || 0) * (payment.distribution_percentage || 50) / 100),
-      netIncome: acc.netIncome + (payment.net_amount || 0),
-    }), {
+  const processStreamingPayments = (payments: StreamingPayment[], userRole: 'admin' | 'filmmaker') => {
+    return payments.reduce((acc, payment) => {
+      const grossAmount = payment.gross_amount || 0;
+      const distributionPercentage = payment.distribution_percentage || 25;
+
+      if (userRole === 'admin') {
+        const companyShare = grossAmount * (distributionPercentage / 100);
+        return {
+          totalRevenue: acc.totalRevenue + grossAmount,
+          totalExpenses: acc.totalExpenses + (grossAmount - companyShare),
+          netIncome: acc.netIncome + companyShare,
+        };
+      } else {
+        const filmmakerShare = grossAmount * ((100 - distributionPercentage) / 100);
+        return {
+          totalRevenue: acc.totalRevenue + grossAmount,
+          totalExpenses: acc.totalExpenses + (grossAmount - filmmakerShare),
+          netIncome: acc.netIncome + filmmakerShare,
+        };
+      }
+    }, {
       totalRevenue: 0,
       totalExpenses: 0,
       netIncome: 0,
     });
   };
 
-  const generateChartData = (titles: Content[], payments: StreamingPayment[]) => {
+  const generateChartData = (titles: Content[], payments: StreamingPayment[], userRole: 'admin' | 'filmmaker') => {
     const monthlyData = new Map<string, ChartDataPoint>();
 
     // Process historical data (assign to creation month)
@@ -99,9 +129,20 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
           paid: 0,
         };
 
-        existing.revenue += title.previous_gross_amount || 0;
-        existing.expenses += (title.previous_expenses || 0) + (title.previous_distribution_fee || 0);
-        existing.net += title.previous_net_revenue || 0;
+        const grossAmount = title.previous_gross_amount || 0;
+        const netRevenue = title.previous_net_revenue || 0;
+
+        existing.revenue += grossAmount;
+
+        if (userRole === 'admin') {
+          const distributionFee = title.previous_distribution_fee || 0;
+          existing.expenses += (grossAmount - distributionFee);
+          existing.net += distributionFee;
+        } else {
+          existing.expenses += (grossAmount - netRevenue);
+          existing.net += netRevenue;
+        }
+
         existing.paid += title.previous_amount_paid || 0;
 
         monthlyData.set(month, existing);
@@ -119,14 +160,25 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         paid: 0,
       };
 
-      existing.revenue += payment.gross_amount || 0;
-      existing.expenses += (payment.gross_amount || 0) * (payment.distribution_percentage || 50) / 100;
-      existing.net += payment.net_amount || 0;
+      const grossAmount = payment.gross_amount || 0;
+      const distributionPercentage = payment.distribution_percentage || 25;
+
+      existing.revenue += grossAmount;
+
+      if (userRole === 'admin') {
+        const companyShare = grossAmount * (distributionPercentage / 100);
+        existing.expenses += (grossAmount - companyShare);
+        existing.net += companyShare;
+      } else {
+        const filmmakerShare = grossAmount * ((100 - distributionPercentage) / 100);
+        existing.expenses += (grossAmount - filmmakerShare);
+        existing.net += filmmakerShare;
+      }
 
       monthlyData.set(month, existing);
     });
 
-    return Array.from(monthlyData.values()).sort((a, b) => 
+    return Array.from(monthlyData.values()).sort((a, b) =>
       new Date(a.period).getTime() - new Date(b.period).getTime()
     );
   };
@@ -155,11 +207,13 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         setTitles(filteredTitles);
 
         // Fetch streaming payments
+        const titleIds = filteredTitles.map(t => t.id);
+
         let paymentsQuery = supabase
           .from('streaming_payments')
           .select(`
             *,
-            content!inner(title_name, filmmaker_id)
+            content(title_name, filmmaker_id)
           `);
 
         const dateFilter = getDateFilter();
@@ -167,8 +221,8 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
           paymentsQuery = paymentsQuery.gte('payment_date', dateFilter);
         }
 
-        if (userRole === 'filmmaker' && userId) {
-          paymentsQuery = paymentsQuery.eq('content.filmmaker_id', userId);
+        if (userRole === 'filmmaker' && userId && titleIds.length > 0) {
+          paymentsQuery = paymentsQuery.in('title_id', titleIds);
         }
 
         if (selectedTitle) {
@@ -181,10 +235,10 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         const streamingPayments = paymentsData || [];
 
         // Process historical data
-        const historicalTotals = processHistoricalData(filteredTitles);
-        
+        const historicalTotals = processHistoricalData(filteredTitles, userRole);
+
         // Process streaming payments
-        const streamingTotals = processStreamingPayments(streamingPayments);
+        const streamingTotals = processStreamingPayments(streamingPayments, userRole);
 
         // Calculate combined totals
         const totalRevenue = historicalTotals.totalRevenue + streamingTotals.totalRevenue;
@@ -204,7 +258,7 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         });
 
         // Generate chart data
-        const chartData = generateChartData(filteredTitles, streamingPayments);
+        const chartData = generateChartData(filteredTitles, streamingPayments, userRole);
         setChartData(chartData);
 
       } catch (error) {
