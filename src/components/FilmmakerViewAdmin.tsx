@@ -26,39 +26,85 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
 
   const fetchFilmmakerData = async () => {
     try {
-      const [titlesRes, paymentsRes] = await Promise.all([
-        supabase!
-          .from('content')
-          .select('*')
-          .eq('filmmaker_id', filmmaker.id)
-          .order('created_at', { ascending: false }),
-        supabase!
-          .from('payments')
-          .select('*, content:content_id(title_name)')
-          .eq('filmmaker_id', filmmaker.id)
-          .order('payment_date', { ascending: false }),
-      ]);
+      const titlesRes = await supabase!
+        .from('content')
+        .select('*')
+        .or(`filmmaker_id.eq.${filmmaker.id},owner_id.eq.${filmmaker.id},owner_email.eq.${filmmaker.email}`)
+        .order('created_at', { ascending: false });
 
       if (titlesRes.error) throw titlesRes.error;
-      if (paymentsRes.error) throw paymentsRes.error;
-
       setTitles(titlesRes.data || []);
-      setPayments(paymentsRes.data || []);
 
-      const totalEarnings = (paymentsRes.data || []).reduce(
-        (sum, p) => sum + p.gross_amount,
+      const titleIds = (titlesRes.data || []).map(t => t.id);
+
+      let allPayments: any[] = [];
+
+      if (titleIds.length > 0) {
+        const [paymentsRes, streamingRes] = await Promise.all([
+          supabase!
+            .from('payments')
+            .select('*, content:content_id(title_name)')
+            .in('content_id', titleIds)
+            .order('payment_date', { ascending: false }),
+          supabase!
+            .from('streaming_payments')
+            .select('*, content!inner(title_name)')
+            .in('title_id', titleIds)
+            .order('payment_date', { ascending: false }),
+        ]);
+
+        if (paymentsRes.data) {
+          allPayments = [...allPayments, ...paymentsRes.data];
+        }
+
+        if (streamingRes.data) {
+          allPayments = [...allPayments, ...streamingRes.data];
+        }
+      }
+
+      const historicalPayments = (titlesRes.data || [])
+        .filter(content =>
+          (content.previous_gross_amount && content.previous_gross_amount > 0) ||
+          (content.previous_net_revenue && content.previous_net_revenue > 0)
+        )
+        .map(content => ({
+          id: `historical-${content.id}`,
+          content_id: content.id,
+          title_name: content.title_name,
+          payment_date: content.created_at.split('T')[0],
+          gross_amount: content.previous_gross_amount || 0,
+          net_amount: content.previous_net_revenue || 0,
+          channel: 'Historical Data',
+          content: { title_name: content.title_name }
+        }));
+
+      allPayments = [...allPayments, ...historicalPayments];
+      allPayments.sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime());
+
+      setPayments(allPayments);
+
+      const totalEarnings = allPayments.reduce(
+        (sum, p) => sum + (p.gross_amount || 0),
         0
       );
-      const netEarnings = (paymentsRes.data || []).reduce(
-        (sum, p) => sum + p.net_amount,
+      const netEarnings = allPayments.reduce(
+        (sum, p) => sum + (p.net_amount || 0),
         0
       );
+
+      const balanceRes = await supabase!
+        .from('filmmaker_balances')
+        .select('*')
+        .eq('filmmaker_id', filmmaker.id)
+        .maybeSingle();
+
+      const totalPaid = balanceRes.data?.total_paid || 0;
 
       setStats({
         totalTitles: titlesRes.data?.length || 0,
         totalEarnings,
-        totalPaid: 0,
-        availableBalance: netEarnings,
+        totalPaid,
+        availableBalance: Math.max(0, netEarnings - totalPaid),
       });
     } catch (error) {
       console.error('Error fetching filmmaker data:', error);
