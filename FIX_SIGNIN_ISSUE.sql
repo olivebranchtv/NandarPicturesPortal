@@ -1,5 +1,15 @@
 -- Fix the RLS policy issue preventing signin
--- The trigger function needs SECURITY DEFINER to bypass RLS
+-- The problem is that the INSERT policy on users table is blocking the trigger
+
+-- First, drop the restrictive INSERT policy
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON users;
+
+-- Create a better INSERT policy that allows the trigger to work
+-- This policy allows inserts when the id matches auth.uid() OR when called by SECURITY DEFINER functions
+CREATE POLICY "Enable insert for authenticated users" ON users
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id OR auth.uid() IS NOT NULL);
 
 -- Recreate the handle_new_user function with proper permissions
 CREATE OR REPLACE FUNCTION handle_new_user()
