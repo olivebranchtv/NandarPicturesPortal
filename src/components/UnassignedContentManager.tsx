@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Check, X, Edit } from 'lucide-react';
+import { AlertCircle, Check, X, CreditCard as Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
