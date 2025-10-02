@@ -34,12 +34,18 @@ function parseDate(dateValue: any): string {
 }
 
 function parseAmount(value: any): number {
-  if (typeof value === 'number') return value;
+  if (value === null || value === undefined || value === '') return 0;
+
+  if (typeof value === 'number') {
+    return Math.round(value * 100) / 100;
+  }
+
   if (typeof value === 'string') {
     const cleaned = value.replace(/[$,\s]/g, '');
     const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : parsed;
+    return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
   }
+
   return 0;
 }
 
@@ -57,7 +63,15 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
     for (let i = 1; i < jsonData.length; i++) {
       const row = jsonData[i] as any[];
 
-      if (!row || row.length === 0 || !row.some(cell => cell !== null && cell !== undefined && cell !== '')) {
+      if (!row || row.length === 0) {
+        continue;
+      }
+
+      const hasData = row.some(cell => {
+        return cell !== null && cell !== undefined && cell !== '' && cell !== ' ';
+      });
+
+      if (!hasData) {
         continue;
       }
 
@@ -66,18 +80,18 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       const channel = row[7] ? String(row[7]).trim() : '';
       const titleName = row[8] ? String(row[8]).trim() : '';
 
-      if (!titleName) {
-        errors.push(`Row ${i + 1}: Missing title name`);
+      if (!titleName || titleName === '') {
+        errors.push(`Row ${i + 1}: Missing title name (Column I is empty)`);
         continue;
       }
 
-      if (!paymentDate) {
-        errors.push(`Row ${i + 1}: Invalid or missing payment date`);
+      if (!paymentDate || paymentDate === '') {
+        errors.push(`Row ${i + 1}: Missing payment date (Column A is empty)`);
         continue;
       }
 
-      if (grossAmount <= 0) {
-        errors.push(`Row ${i + 1}: Invalid amount`);
+      if (grossAmount <= 0 || isNaN(grossAmount)) {
+        errors.push(`Row ${i + 1}: Invalid amount (Column B: ${row[1] || 'empty'})`);
         continue;
       }
 

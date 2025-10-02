@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from './ui/Card';
 import { parsePaymentFile, ParsedPaymentRow } from '../lib/fileParser';
 import { findBestMatch } from '../lib/fuzzyMatch';
 import { supabase, Content } from '../lib/supabase';
+import { roundToTwoDecimals, calculateDistributionFee, calculateNetAmount } from '../lib/formatters';
 
 interface PaymentUploadProps {
   onUploadComplete: () => void;
@@ -99,14 +100,15 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
       if (matchedRows.length > 0) {
         const paymentsToInsert = matchedRows.map((row) => {
           const content = titles.find((t) => t.id === row.matchedContentId);
-          const distributionFee = row.grossAmount * 0.25;
-          const netAmount = row.grossAmount - distributionFee;
+          const grossAmount = roundToTwoDecimals(row.grossAmount);
+          const distributionFee = calculateDistributionFee(grossAmount);
+          const netAmount = calculateNetAmount(grossAmount);
 
           return {
             content_id: row.matchedContentId,
             filmmaker_id: content?.filmmaker_id,
             payment_date: row.paymentDate,
-            gross_amount: row.grossAmount,
+            gross_amount: grossAmount,
             distribution_fee: distributionFee,
             net_amount: netAmount,
             channel: row.channel || null,
@@ -130,7 +132,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
         const unassignedToInsert = unmatchedRows.map((row) => ({
           title_name: row.titleName,
           payment_date: row.paymentDate,
-          gross_amount: row.grossAmount,
+          gross_amount: roundToTwoDecimals(row.grossAmount),
           channel: row.channel || null,
           status: 'pending' as const,
           created_by: adminId,

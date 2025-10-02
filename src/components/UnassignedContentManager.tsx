@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { supabase, UnassignedContent, Content, User } from '../lib/supabase';
+import { roundToTwoDecimals, calculateDistributionFee, calculateNetAmount } from '../lib/formatters';
 
 interface UnassignedContentManagerProps {
   onUpdate: () => void;
@@ -81,14 +82,15 @@ export function UnassignedContentManager({ onUpdate }: UnassignedContentManagerP
         return;
       }
 
-      const distributionFee = selectedItem.gross_amount * 0.25;
-      const netAmount = selectedItem.gross_amount - distributionFee;
+      const grossAmount = roundToTwoDecimals(selectedItem.gross_amount);
+      const distributionFee = calculateDistributionFee(grossAmount);
+      const netAmount = calculateNetAmount(grossAmount);
 
       const { error: paymentError } = await supabase!.from('payments').insert({
         content_id: selectedTitleId,
         filmmaker_id: title.filmmaker_id,
         payment_date: selectedItem.payment_date,
-        gross_amount: selectedItem.gross_amount,
+        gross_amount: grossAmount,
         distribution_fee: distributionFee,
         net_amount: netAmount,
         channel: selectedItem.channel,
@@ -152,14 +154,15 @@ export function UnassignedContentManager({ onUpdate }: UnassignedContentManagerP
         console.error('Error creating distribution settings:', distributionError);
       }
 
-      const distributionFee = selectedItem.gross_amount * 0.25;
-      const netAmount = selectedItem.gross_amount - distributionFee;
+      const grossAmount = roundToTwoDecimals(selectedItem.gross_amount);
+      const distributionFee = calculateDistributionFee(grossAmount);
+      const netAmount = calculateNetAmount(grossAmount);
 
       const { error: paymentError } = await supabase!.from('payments').insert({
         content_id: newTitle.id,
         filmmaker_id: newTitleData.filmmaker_id,
         payment_date: selectedItem.payment_date,
-        gross_amount: selectedItem.gross_amount,
+        gross_amount: grossAmount,
         distribution_fee: distributionFee,
         net_amount: netAmount,
         channel: selectedItem.channel,
