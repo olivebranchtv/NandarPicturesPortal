@@ -82,7 +82,7 @@ export function FilmmakerDashboard() {
       const { data: titlesData, error: titlesError } = await supabase
         .from('content')
         .select('*')
-        .eq('filmmaker_id', profile.id)
+        .or(`filmmaker_id.eq.${profile.id},owner_id.eq.${profile.id},owner_email.eq.${profile.email}`)
         .order('created_at', { ascending: false });
 
       console.log('Titles query result:', { 
