@@ -8,6 +8,9 @@ import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../li
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
 import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
+import { PaymentUpload } from '../components/PaymentUpload';
+import { UnassignedContentManager } from '../components/UnassignedContentManager';
+import { PaymentHistoryAdmin } from '../components/PaymentHistoryAdmin';
 
 interface AdminStats {
   totalUsers: number;
@@ -24,7 +27,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
@@ -40,6 +43,7 @@ export function AdminDashboard() {
   const [showAddTitle, setShowAddTitle] = useState(false);
   const [showEditTitle, setShowEditTitle] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
+  const [showPaymentUpload, setShowPaymentUpload] = useState(false);
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
     email: '',
@@ -534,6 +538,16 @@ export function AdminDashboard() {
             >
               Financial
             </button>
+            <button
+              onClick={() => setActiveTab('payments')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'payments'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Payments
+            </button>
           </div>
           
           <Button onClick={() => setShowAddTitle(true)}>
@@ -544,6 +558,12 @@ export function AdminDashboard() {
             <Plus className="h-4 w-4 mr-2" />
             Add Filmmaker
           </Button>
+          {activeTab === 'payments' && (
+            <Button onClick={() => setShowPaymentUpload(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Upload Payments
+            </Button>
+          )}
           <Button onClick={() => setShowAddPayment(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Payment
@@ -555,12 +575,17 @@ export function AdminDashboard() {
       {activeTab === 'financial' ? (
         <div className="space-y-6">
           <FinancialDashboard userRole="admin" />
-          <PaymentHistoryTable 
+          <PaymentHistoryTable
             streamingPayments={streamingPayments}
             titles={titles}
             filmmakers={filmmakers}
             refreshData={fetchDashboardData}
           />
+        </div>
+      ) : activeTab === 'payments' ? (
+        <div className="space-y-6">
+          <UnassignedContentManager onUpdate={fetchDashboardData} />
+          <PaymentHistoryAdmin onUpdate={fetchDashboardData} />
         </div>
       ) : (
         <>
@@ -1296,6 +1321,16 @@ export function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Payment Upload Modal */}
+      {showPaymentUpload && profile && (
+        <PaymentUpload
+          onUploadComplete={fetchDashboardData}
+          onClose={() => setShowPaymentUpload(false)}
+          titles={titles}
+          adminId={profile.id}
+        />
       )}
     </div>
   );

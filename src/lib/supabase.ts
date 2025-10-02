@@ -109,3 +109,42 @@ export interface FilmmakerBalance {
   available_balance: number;
   last_updated: string;
 }
+
+export interface Payment {
+  id: string;
+  content_id?: string;
+  filmmaker_id?: string;
+  payment_date: string;
+  gross_amount: number;
+  distribution_fee: number;
+  net_amount: number;
+  channel?: string;
+  title_name?: string;
+  payment_method: 'manual' | 'excel_upload';
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  content?: {
+    title_name: string;
+    filmmaker_id?: string;
+  };
+  filmmaker?: {
+    first_name?: string;
+    last_name?: string;
+    email: string;
+  };
+}
+
+export interface UnassignedContent {
+  id: string;
+  title_name: string;
+  payment_date: string;
+  gross_amount: number;
+  channel?: string;
+  status: 'pending' | 'assigned' | 'ignored';
+  assigned_content_id?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}

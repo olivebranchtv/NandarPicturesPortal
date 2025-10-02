@@ -7,6 +7,7 @@ import { Input } from '../components/ui/Input';
 import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
+import { FilmmakerPaymentHistory } from '../components/FilmmakerPaymentHistory';
 
 interface FilmmakerStats {
   totalTitles: number;
@@ -449,7 +450,10 @@ export function FilmmakerDashboard() {
 
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
-        <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
+        <div className="space-y-6">
+          <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
+          {profile?.id && <FilmmakerPaymentHistory filmmakerI={profile.id} />}
+        </div>
       ) : (
         <>
           {/* Overview Tab Content - All existing functionality */}
