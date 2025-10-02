@@ -1,6 +1,41 @@
-# Payment Upload System Guide
+# Complete Payment & Admin System Guide
 
 ## Overview
+The platform provides a complete payment management system for admins and filmmakers including:
+- Excel/CSV payment upload with automatic matching
+- Filmmaker payment request workflow ($25 minimum)
+- Admin approval and payment tracking
+- Comprehensive titles and filmmaker management
+- Real-time dashboard views for verification
+
+## Admin Features
+
+### 1. View Filmmaker Dashboards
+- Navigate to **Admin Dashboard → Filmmakers** tab
+- Click "View Dashboard" next to any filmmaker
+- See their complete financial information:
+  - All titles
+  - Payment history
+  - Total earnings and available balance
+  - PayPal/Venmo details
+  - Contact information
+
+### 2. Titles Management
+- Navigate to **Admin Dashboard → Titles** tab
+- View all titles in the system
+- Edit title information and reassign to different filmmakers
+- Delete titles if needed
+- Change distribution percentages per title
+
+### 3. Payment Request Management
+- Navigate to **Admin Dashboard → Requests** tab
+- View all filmmaker payment requests
+- **Approve**: Filmmakers are notified to expect payment within 14 days
+- **Mark as Paid**: Select PayPal or Venmo as payment method
+- **Reject**: Decline payment requests with notification
+- Track payment status: Pending → Approved → Paid
+
+### 4. Payment Upload System
 The payment upload system allows admins to upload Excel or CSV files containing payment data that automatically:
 - Matches titles using fuzzy matching
 - Calculates 25% distribution fees
@@ -63,12 +98,31 @@ In the Payment History section:
 - **Edit**: Modify payment date, amount, channel, or notes
 - **Delete**: Remove a payment entry (recalculates totals automatically)
 
-## Filmmaker Dashboard
+## Filmmaker Features
+
+### Payment Requests
+Filmmakers can request payments once they reach $25:
+1. Navigate to Filmmaker Dashboard
+2. Click "Request Payment" button (visible when balance ≥ $25)
+3. Enter desired amount (between $25 and available balance)
+4. Submit request
+5. **Notice**: "Expect payment within 14 days from time of request"
+6. Track request status in dashboard
+
+### Request Status Flow
+- **Pending**: Submitted, awaiting admin review
+- **Approved**: Admin approved, payment processing within 14 days
+- **Paid**: Payment completed via PayPal or Venmo
+- **Rejected**: Request declined
+
+### Dashboard Views
 Filmmakers can view:
 - Individual payment entries with dates and channels
 - Payment history table showing all payments
 - Gross amounts, distribution fees, and net amounts
 - Total earnings summary
+- Available balance for withdrawal
+- Payment request history and status
 
 ## Distribution Fee Calculation
 - **Gross Amount**: Original payment amount from column B

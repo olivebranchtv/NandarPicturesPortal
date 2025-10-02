@@ -19,6 +19,8 @@ interface FilmmakerStats {
 export function FilmmakerDashboard() {
   const { profile, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'financial'>('overview');
+  const [showRequestPayment, setShowRequestPayment] = useState(false);
+  const [requestAmount, setRequestAmount] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     first_name: '',
@@ -267,7 +269,11 @@ export function FilmmakerDashboard() {
   };
 
   const handleRequestPayment = async () => {
-    if (!profile?.id || !balance || balance.available_balance < 100) return;
+    const amount = parseFloat(requestAmount);
+    if (!profile?.id || isNaN(amount) || amount < 25 || amount > stats.availableBalance) {
+      alert('Please enter a valid amount between $25 and your available balance');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -275,13 +281,15 @@ export function FilmmakerDashboard() {
         .insert({
           filmmaker_id: profile.id,
           content_id: titles[0]?.id,
-          amount_requested: balance.available_balance,
+          amount_requested: amount,
         });
 
       if (error) throw error;
 
+      setShowRequestPayment(false);
+      setRequestAmount('');
       fetchDashboardData();
-      alert('Payment request submitted successfully!');
+      alert('Payment request submitted successfully! Expect payment within 14 days from time of request.');
     } catch (error) {
       console.error('Error requesting payment:', error);
       alert('Error submitting payment request. Please try again.');
@@ -539,9 +547,9 @@ export function FilmmakerDashboard() {
                     </p>
                   </div>
 
-                  {stats.availableBalance >= 100 ? (
+                  {stats.availableBalance >= 25 ? (
                     <Button
-                      onClick={handleRequestPayment}
+                      onClick={() => setShowRequestPayment(true)}
                       className="w-full"
                     >
                       <Plus className="h-4 w-4 mr-2" />
@@ -550,7 +558,7 @@ export function FilmmakerDashboard() {
                   ) : (
                     <div className="text-center p-4 bg-yellow-50 rounded-lg">
                       <p className="text-sm text-yellow-800">
-                        Minimum balance of $100 required for payment requests
+                        Minimum balance of $25 required for payment requests
                       </p>
                     </div>
                   )}
@@ -832,6 +840,62 @@ export function FilmmakerDashboard() {
                 <Settings className="h-4 w-4" />
                 <span>{profileLoading ? 'Saving...' : 'Save Changes'}</span>
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Payment Modal */}
+      {showRequestPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Request Payment</h3>
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-sm">
+                  <div className="mb-2">
+                    <span className="font-medium">Available Balance:</span>{' '}
+                    ${stats.availableBalance.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Minimum request: $25
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Input
+                  label="Request Amount"
+                  type="number"
+                  value={requestAmount}
+                  onChange={(e) => setRequestAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  min="25"
+                  max={stats.availableBalance}
+                />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    Once approved, expect payment within 14 days from time of request.
+                  </p>
+                </div>
+                <div className="flex space-x-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setShowRequestPayment(false);
+                      setRequestAmount('');
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleRequestPayment}
+                    className="flex-1"
+                  >
+                    Submit Request
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

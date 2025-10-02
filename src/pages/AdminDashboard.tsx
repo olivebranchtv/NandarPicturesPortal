@@ -11,6 +11,7 @@ import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
 import { PaymentUpload } from '../components/PaymentUpload';
 import { UnassignedContentManager } from '../components/UnassignedContentManager';
 import { PaymentHistoryAdmin } from '../components/PaymentHistoryAdmin';
+import { FilmmakerViewAdmin } from '../components/FilmmakerViewAdmin';
 
 interface AdminStats {
   totalUsers: number;
@@ -27,7 +28,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
@@ -44,6 +45,8 @@ export function AdminDashboard() {
   const [showEditTitle, setShowEditTitle] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showPaymentUpload, setShowPaymentUpload] = useState(false);
+  const [viewingFilmmaker, setViewingFilmmaker] = useState<User | null>(null);
+  const [approvingRequest, setApprovingRequest] = useState<PaymentRequest | null>(null);
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
     email: '',
@@ -469,11 +472,32 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      alert('Payment request approved!');
+      alert('Payment request approved! Expect payment within 14 days from time of request.');
       fetchDashboardData();
     } catch (error) {
       console.error('Error approving payment:', error);
       alert('Error approving payment request. Please try again.');
+    }
+  };
+
+  const handleMarkAsPaid = async (requestId: string, paymentMethod: string) => {
+    try {
+      const { error } = await supabase
+        .from('payment_requests')
+        .update({
+          status: 'paid',
+          payment_method_used: paymentMethod,
+          date_paid: new Date().toISOString()
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      alert('Payment marked as paid!');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error marking payment as paid:', error);
+      alert('Error marking payment. Please try again.');
     }
   };
 
@@ -548,6 +572,36 @@ export function AdminDashboard() {
             >
               Payments
             </button>
+            <button
+              onClick={() => setActiveTab('titles')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'titles'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Titles
+            </button>
+            <button
+              onClick={() => setActiveTab('filmmakers')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'filmmakers'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Filmmakers
+            </button>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'requests'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Requests
+            </button>
           </div>
           
           <Button onClick={() => setShowAddTitle(true)}>
@@ -587,6 +641,345 @@ export function AdminDashboard() {
           <UnassignedContentManager onUpdate={fetchDashboardData} />
           <PaymentHistoryAdmin onUpdate={fetchDashboardData} />
         </div>
+      ) : activeTab === 'titles' ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Film className="h-5 w-5 mr-2" />
+                All Titles Management
+              </h3>
+              <div className="text-sm text-gray-500">
+                {titles.length} title{titles.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {titles.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Filmmaker
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Revenue
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Distribution
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {titles.map((title) => (
+                      <tr key={title.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {title.title_name}
+                            </div>
+                            {title.genre && (
+                              <div className="text-sm text-gray-500">
+                                {title.genre}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {title.filmmaker ? (
+                            <div>
+                              <div>{title.filmmaker.first_name} {title.filmmaker.last_name}</div>
+                              <div className="text-xs text-gray-400">{title.filmmaker.email}</div>
+                            </div>
+                          ) : (
+                            <span className="text-red-500">No filmmaker assigned</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {title.content_type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            title.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            title.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {title.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div>
+                            <div>${((title.previous_gross_amount || 0) + (title.revenue_total || 0)).toLocaleString()}</div>
+                            <div className="text-xs text-gray-400">
+                              Net: ${((title.previous_net_revenue || 0) + (title.net_revenue || 0)).toLocaleString()}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {title.title_distribution_settings && title.title_distribution_settings.length > 0 ? (
+                            <div>
+                              <div>Company: {title.title_distribution_settings[0].company_percentage}%</div>
+                              <div className="text-xs text-gray-400">
+                                Filmmaker: {title.title_distribution_settings[0].filmmaker_percentage}%
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-yellow-600">25% / 75%</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleEditTitle(title)}
+                              className="flex items-center space-x-1"
+                            >
+                              <Edit className="h-3 w-3" />
+                              <span>Edit</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleDeleteTitle(title.id)}
+                              className="flex items-center space-x-1"
+                            >
+                              <X className="h-3 w-3" />
+                              <span>Delete</span>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No titles yet</h3>
+                <p className="text-gray-500 mb-4">
+                  Start by adding your first title to the platform
+                </p>
+                <Button onClick={() => setShowAddTitle(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First Title
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : activeTab === 'filmmakers' ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Users className="h-5 w-5 mr-2" />
+                All Filmmakers
+              </h3>
+              <div className="text-sm text-gray-500">
+                {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filmmakers.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Titles
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Total Earnings
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filmmakers.map((filmmaker) => {
+                      const filmmakerTitles = titles.filter(t => t.filmmaker_id === filmmaker.id);
+                      return (
+                        <tr key={filmmaker.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {filmmaker.first_name} {filmmaker.last_name}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {filmmaker.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {filmmakerTitles.length}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${(filmmaker.total_earnings || 0).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <Button
+                              size="sm"
+                              onClick={() => setViewingFilmmaker(filmmaker)}
+                            >
+                              View Dashboard
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No filmmakers yet</h3>
+                <p className="text-gray-500 mb-4">
+                  Start by adding filmmakers to the platform
+                </p>
+                <Button onClick={() => setShowAddFilmmaker(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First Filmmaker
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : activeTab === 'requests' ? (
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold flex items-center">
+              <Clock className="h-5 w-5 mr-2" />
+              Payment Requests
+            </h3>
+          </CardHeader>
+          <CardContent>
+            {paymentRequests.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Filmmaker
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Amount Requested
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Request Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Payment Method
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paymentRequests.map((request) => (
+                      <tr key={request.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {request.filmmaker?.first_name} {request.filmmaker?.last_name}
+                          <div className="text-xs text-gray-500">{request.filmmaker?.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          ${request.amount_requested.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(request.requested_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {request.status}
+                          </span>
+                          {request.status === 'approved' && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              14 days from approval
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {request.payment_method_used || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            {request.status === 'pending' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApprovePayment(request.id, request.amount_requested)}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => {
+                                    if (confirm('Reject this payment request?')) {
+                                      supabase!.from('payment_requests').update({ status: 'rejected' }).eq('id', request.id).then(() => fetchDashboardData());
+                                    }
+                                  }}
+                                >
+                                  <X className="h-3 w-3 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                            {request.status === 'approved' && (
+                              <Button
+                                size="sm"
+                                onClick={() => setApprovingRequest(request)}
+                              >
+                                Mark as Paid
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No payment requests</h3>
+                <p className="text-gray-500">Payment requests will appear here</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <>
           {/* Debug Information */}
@@ -1331,6 +1724,67 @@ export function AdminDashboard() {
           titles={titles}
           adminId={profile.id}
         />
+      )}
+
+      {/* View Filmmaker Dashboard Modal */}
+      {viewingFilmmaker && (
+        <FilmmakerViewAdmin
+          filmmaker={viewingFilmmaker}
+          onClose={() => setViewingFilmmaker(null)}
+        />
+      )}
+
+      {/* Mark Payment as Paid Modal */}
+      {approvingRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Mark Payment as Paid</h3>
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-sm">
+                  <div className="mb-2">
+                    <span className="font-medium">Filmmaker:</span>{' '}
+                    {approvingRequest.filmmaker?.first_name} {approvingRequest.filmmaker?.last_name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Amount:</span>{' '}
+                    ${approvingRequest.amount_requested.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  Select the payment method used:
+                </p>
+                <Button
+                  onClick={() => {
+                    handleMarkAsPaid(approvingRequest.id, 'PayPal');
+                    setApprovingRequest(null);
+                  }}
+                  className="w-full"
+                >
+                  PayPal
+                </Button>
+                <Button
+                  onClick={() => {
+                    handleMarkAsPaid(approvingRequest.id, 'Venmo');
+                    setApprovingRequest(null);
+                  }}
+                  className="w-full"
+                >
+                  Venmo
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setApprovingRequest(null)}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
