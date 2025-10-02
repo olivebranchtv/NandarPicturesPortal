@@ -605,33 +605,33 @@ export function AdminDashboard() {
               Requests
             </button>
           </div>
-          
-          <Button onClick={() => setShowAddTitle(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Title
-          </Button>
-          <Button onClick={() => setShowAddFilmmaker(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Filmmaker
-          </Button>
-          {activeTab === 'payments' && (
-            <>
-              <Button onClick={() => setShowPaymentUpload(true)} variant="secondary">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Payments
-              </Button>
-              <Button onClick={() => setShowAddPayment(true)}>
+
+          <div className="flex items-center gap-2">
+            {activeTab === 'titles' && (
+              <Button onClick={() => setShowAddTitle(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Payment
+                Add Title
               </Button>
-            </>
-          )}
-          {activeTab !== 'payments' && (
-            <Button onClick={() => setShowAddPayment(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Payment
-            </Button>
-          )}
+            )}
+            {activeTab === 'filmmakers' && (
+              <Button onClick={() => setShowAddFilmmaker(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Filmmaker
+              </Button>
+            )}
+            {activeTab === 'payments' && (
+              <>
+                <Button onClick={() => setShowPaymentUpload(true)} variant="secondary">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Payments
+                </Button>
+                <Button onClick={() => setShowAddPayment(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Payment
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
