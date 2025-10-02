@@ -1,0 +1,14 @@
+-- STEP 1: Drop existing tables and functions
+DROP TABLE IF EXISTS analytics CASCADE;
+DROP TABLE IF EXISTS title_selections CASCADE;
+DROP TABLE IF EXISTS payment_statements CASCADE;
+DROP TABLE IF EXISTS streaming_payments CASCADE;
+DROP TABLE IF EXISTS title_distribution_settings CASCADE;
+DROP TABLE IF EXISTS filmmaker_balances CASCADE;
+DROP TABLE IF EXISTS payment_requests CASCADE;
+DROP TABLE IF EXISTS content CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+DROP FUNCTION IF EXISTS is_admin() CASCADE;
+DROP FUNCTION IF EXISTS get_user_role() CASCADE;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
