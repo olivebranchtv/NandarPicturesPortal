@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Film, DollarSign, Clock, Plus, Check, X, CreditCard as Edit, BarChart3 } from 'lucide-react';
+import { Users, Film, DollarSign, Clock, Plus, Check, X, Edit, BarChart3, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -12,6 +12,7 @@ import { PaymentUpload } from '../components/PaymentUpload';
 import { UnassignedContentManager } from '../components/UnassignedContentManager';
 import { PaymentHistoryAdmin } from '../components/PaymentHistoryAdmin';
 import { FilmmakerViewAdmin } from '../components/FilmmakerViewAdmin';
+import { BulkTitleImport } from '../components/BulkTitleImport';
 
 interface AdminStats {
   totalUsers: number;
@@ -45,6 +46,7 @@ export function AdminDashboard() {
   const [showEditTitle, setShowEditTitle] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showPaymentUpload, setShowPaymentUpload] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [viewingFilmmaker, setViewingFilmmaker] = useState<User | null>(null);
   const [approvingRequest, setApprovingRequest] = useState<PaymentRequest | null>(null);
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
@@ -649,8 +651,18 @@ export function AdminDashboard() {
                 <Film className="h-5 w-5 mr-2" />
                 All Titles Management
               </h3>
-              <div className="text-sm text-gray-500">
-                {titles.length} title{titles.length !== 1 ? 's' : ''}
+              <div className="flex items-center space-x-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowBulkImport(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Bulk Import
+                </Button>
+                <div className="text-sm text-gray-500">
+                  {titles.length} title{titles.length !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -1785,6 +1797,14 @@ export function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Title Import Modal */}
+      {showBulkImport && (
+        <BulkTitleImport
+          onClose={() => setShowBulkImport(false)}
+          onComplete={fetchDashboardData}
+        />
       )}
     </div>
   );
