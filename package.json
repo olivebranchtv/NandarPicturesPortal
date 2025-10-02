@@ -13,6 +13,7 @@
     "@headlessui/react": "^2.2.8",
     "@supabase/supabase-js": "^2.57.4",
     "clsx": "^2.1.1",
+    "dotenv": "^17.2.3",
     "lucide-react": "^0.344.0",
     "papaparse": "^5.5.3",
     "react": "^18.3.1",
