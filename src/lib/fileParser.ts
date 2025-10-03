@@ -168,9 +168,9 @@ export async function parseCSVFile(file: File): Promise<ParseResult> {
             const channel = row[channelCol] ? String(row[channelCol]).trim() : '';
             const titleName = row[titleCol] ? String(row[titleCol]).trim() : '';
 
-            if (!titleName) {
-              errors.push(`Row ${i + 1}: Missing title name (Column ${String.fromCharCode(65 + titleCol)})`);
-              continue;
+            // Allow empty title names - they will be auto-generated from channel data
+            if (!titleName || titleName === '') {
+              console.log(`Row ${i + 1}: Title name is empty, will auto-generate from channel`);
             }
 
             if (!paymentDate) {
