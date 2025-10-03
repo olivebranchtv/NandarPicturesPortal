@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader } from '../ui/Card';
 
 interface SignUpProps {
   onToggleMode: () => void;
+  userType?: 'admin' | 'creator';
 }
 
-export function SignUp({ onToggleMode }: SignUpProps) {
+export function SignUp({ onToggleMode, userType = 'creator' }: SignUpProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
