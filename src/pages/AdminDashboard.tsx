@@ -158,18 +158,35 @@ export function AdminDashboard() {
       if (requestsError) throw requestsError;
       setPaymentRequests(requestsData || []);
 
-      // Fetch payments from the payments table
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('payments')
-        .select(`
-          *,
-          content(title_name, filmmaker_id)
-        `)
-        .order('payment_date', { ascending: false })
-        .limit(100000);
+      // Fetch payments from the payments table in batches
+      let allPayments: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      console.log('Payments query result:', { paymentsData, paymentsError });
-      if (paymentsError) throw paymentsError;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            content(title_name, filmmaker_id)
+          `)
+          .order('payment_date', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allPayments = [...allPayments, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const paymentsData = allPayments;
+      console.log(`✅ Fetched ALL ${paymentsData.length} payments from database`);
 
       // Transform payments to match StreamingPayment format
       const transformedPayments = (paymentsData || []).map(p => ({

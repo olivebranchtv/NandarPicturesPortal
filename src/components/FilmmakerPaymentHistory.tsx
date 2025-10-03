@@ -38,18 +38,35 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
         return;
       }
 
-      // Fetch payments for those content IDs
-      const { data: paymentsData, error: paymentsError } = await supabase!
-        .from('payments')
-        .select(`
-          *,
-          content(title_name)
-        `)
-        .in('content_id', titleIds)
-        .order('payment_date', { ascending: false })
-        .limit(100000);
+      // Fetch payments in batches to bypass Supabase 1000 row limit
+      let allPayments: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (paymentsError) throw paymentsError;
+      while (hasMore) {
+        const { data, error } = await supabase!
+          .from('payments')
+          .select(`
+            *,
+            content(title_name)
+          `)
+          .in('content_id', titleIds)
+          .order('payment_date', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allPayments = [...allPayments, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const paymentsData = allPayments;
 
       // Transform payments to match Payment interface
       const transformedPayments = (paymentsData || []).map(p => ({

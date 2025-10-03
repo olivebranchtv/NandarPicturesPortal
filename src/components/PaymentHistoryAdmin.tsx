@@ -31,8 +31,16 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
 
   const fetchPayments = async () => {
     try {
-      const [paymentsRes, titlesRes] = await Promise.all([
-        supabase!
+      // Fetch all payments in batches to bypass Supabase 1000 row limit
+      let allPayments: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      console.log('Starting to fetch all payments...');
+
+      while (hasMore) {
+        const { data, error } = await supabase!
           .from('payments')
           .select(
             `
@@ -42,16 +50,27 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
           `
           )
           .order('payment_date', { ascending: false })
-          .limit(100000),
-        supabase!.from('content').select('*'),
-      ]);
+          .range(from, from + batchSize - 1);
 
-      if (paymentsRes.error) throw paymentsRes.error;
-      if (titlesRes.error) throw titlesRes.error;
+        if (error) throw error;
 
-      console.log(`✅ Fetched ${paymentsRes.data?.length || 0} payments from database`);
-      setPayments(paymentsRes.data || []);
-      setTitles(titlesRes.data || []);
+        if (data && data.length > 0) {
+          allPayments = [...allPayments, ...data];
+          console.log(`Fetched batch: ${data.length} payments (total so far: ${allPayments.length})`);
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Fetched ALL ${allPayments.length} payments from database`);
+      setPayments(allPayments);
+
+      // Fetch titles
+      const { data: titlesData, error: titlesError } = await supabase!.from('content').select('*');
+      if (titlesError) throw titlesError;
+      setTitles(titlesData || []);
     } catch (error) {
       console.error('Error fetching payments:', error);
     } finally {

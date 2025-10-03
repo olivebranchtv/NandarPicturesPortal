@@ -147,18 +147,34 @@ export function FilmmakerDashboard() {
       let paymentsTableError = null;
 
       if (titleIds.length > 0) {
-        const { data, error } = await supabase
-          .from('payments')
-          .select(`
-            *,
-            content(title_name)
-          `)
-          .in('content_id', titleIds)
-          .order('payment_date', { ascending: false })
-          .limit(100000);
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        paymentsTableData = data || [];
-        paymentsTableError = error;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('payments')
+            .select(`
+              *,
+              content(title_name)
+            `)
+            .in('content_id', titleIds)
+            .order('payment_date', { ascending: false })
+            .range(from, from + batchSize - 1);
+
+          if (error) {
+            paymentsTableError = error;
+            break;
+          }
+
+          if (data && data.length > 0) {
+            paymentsTableData = [...paymentsTableData, ...data];
+            from += batchSize;
+            hasMore = data.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
       }
 
       console.log('Payments table query result:', {

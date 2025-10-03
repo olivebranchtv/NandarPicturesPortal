@@ -40,15 +40,26 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
       let allPayments: any[] = [];
 
       if (titleIds.length > 0) {
-        const paymentsRes = await supabase!
-          .from('payments')
-          .select('*, content:content_id(title_name)')
-          .in('content_id', titleIds)
-          .order('payment_date', { ascending: false })
-          .limit(100000);
+        // Fetch payments in batches
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        if (paymentsRes.data && !paymentsRes.error) {
-          allPayments = [...allPayments, ...paymentsRes.data];
+        while (hasMore) {
+          const { data, error } = await supabase!
+            .from('payments')
+            .select('*, content:content_id(title_name)')
+            .in('content_id', titleIds)
+            .order('payment_date', { ascending: false })
+            .range(from, from + batchSize - 1);
+
+          if (data && data.length > 0 && !error) {
+            allPayments = [...allPayments, ...data];
+            from += batchSize;
+            hasMore = data.length === batchSize;
+          } else {
+            hasMore = false;
+          }
         }
 
         const streamingRes = await supabase!

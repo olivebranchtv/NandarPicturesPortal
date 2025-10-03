@@ -204,36 +204,52 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         const filteredTitles = titlesData || [];
         setTitles(filteredTitles);
 
-        // Fetch payments from the payments table
+        // Fetch payments from the payments table in batches
         // For filmmakers, we need to get payments for their content, not by filmmaker_id
         // because filmmaker_id in payments may be null
         const titleIds = filteredTitles.map(t => t.id);
-
-        let paymentsQuery = supabase
-          .from('payments')
-          .select(`
-            *,
-            content(title_name)
-          `);
-
         const dateFilter = getDateFilter();
-        if (dateFilter) {
-          paymentsQuery = paymentsQuery.gte('payment_date', dateFilter);
+
+        let allPaymentsData: any[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          let paymentsQuery = supabase
+            .from('payments')
+            .select(`
+              *,
+              content(title_name)
+            `);
+
+          if (dateFilter) {
+            paymentsQuery = paymentsQuery.gte('payment_date', dateFilter);
+          }
+
+          if (userRole === 'filmmaker' && userId && titleIds.length > 0) {
+            paymentsQuery = paymentsQuery.in('content_id', titleIds);
+          }
+
+          if (selectedTitle) {
+            paymentsQuery = paymentsQuery.eq('content_id', selectedTitle);
+          }
+
+          paymentsQuery = paymentsQuery.range(from, from + batchSize - 1);
+
+          const { data, error } = await paymentsQuery;
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allPaymentsData = [...allPaymentsData, ...data];
+            from += batchSize;
+            hasMore = data.length === batchSize;
+          } else {
+            hasMore = false;
+          }
         }
 
-        if (userRole === 'filmmaker' && userId && titleIds.length > 0) {
-          // Filter by content_id to get payments for filmmaker's titles
-          paymentsQuery = paymentsQuery.in('content_id', titleIds);
-        }
-
-        if (selectedTitle) {
-          paymentsQuery = paymentsQuery.eq('content_id', selectedTitle);
-        }
-
-        paymentsQuery = paymentsQuery.limit(100000);
-
-        const { data: paymentsData, error: paymentsError } = await paymentsQuery;
-        if (paymentsError) throw paymentsError;
+        const paymentsData = allPaymentsData;
 
         // Transform payments to match StreamingPayment format
         const streamingPayments = (paymentsData || []).map(p => ({
