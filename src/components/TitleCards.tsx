@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Film, DollarSign, Calendar, Hash } from 'lucide-react';
+import { Film, DollarSign, Calendar, Hash, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { supabase } from '../lib/supabase';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
+interface ChannelRevenue {
+  channel: string;
+  revenue: number;
+  paymentsCount: number;
+}
 
 interface TitleMetrics {
   id: string;
@@ -12,6 +19,7 @@ interface TitleMetrics {
   paymentsCount: number;
   latestPaymentDate: string | null;
   balanceDue: number;
+  channelBreakdown: ChannelRevenue[];
 }
 
 interface TitleCardsProps {
@@ -63,10 +71,38 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
             }, '')
           : null;
 
+        // Calculate channel breakdown
+        const channelMap = new Map<string, { revenue: number; count: number }>();
+
+        titlePayments.forEach(payment => {
+          const channel = payment.channel || 'Unknown';
+          const existing = channelMap.get(channel) || { revenue: 0, count: 0 };
+          existing.revenue += payment.gross_amount || 0;
+          existing.count += 1;
+          channelMap.set(channel, existing);
+        });
+
+        const channelBreakdown: ChannelRevenue[] = Array.from(channelMap.entries())
+          .map(([channel, data]) => ({
+            channel,
+            revenue: data.revenue,
+            paymentsCount: data.count
+          }))
+          .sort((a, b) => b.revenue - a.revenue);
+
         // Add historical data if exists
         const historicalRevenue = title.previous_gross_amount || 0;
         const historicalNetIncome = title.previous_net_revenue || 0;
         const historicalPaid = title.previous_amount_paid || 0;
+
+        // Add historical revenue as separate channel if exists
+        if (historicalRevenue > 0) {
+          channelBreakdown.push({
+            channel: 'Historical',
+            revenue: historicalRevenue,
+            paymentsCount: 0
+          });
+        }
 
         const totalRevenueCombined = totalRevenue + historicalRevenue;
         const netIncomeCombined = netIncome + historicalNetIncome;
@@ -81,6 +117,7 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
           paymentsCount,
           latestPaymentDate,
           balanceDue,
+          channelBreakdown: channelBreakdown.sort((a, b) => b.revenue - a.revenue),
         };
       });
 
@@ -187,6 +224,46 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
                   <p className="text-sm text-gray-700">{formatDate(title.latestPaymentDate)}</p>
                 </div>
               </div>
+
+              {/* Channel Revenue Breakdown */}
+              {title.channelBreakdown.length > 0 && (
+                <div className="pt-4 border-t">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                    <h4 className="text-sm font-semibold text-gray-900">Revenue by Channel</h4>
+                  </div>
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={title.channelBreakdown} layout="horizontal">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis type="number" tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
+                        <YAxis type="category" dataKey="channel" width={80} tick={{ fontSize: 12 }} />
+                        <Tooltip
+                          formatter={(value: number) => [`$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
+                          labelFormatter={(label) => `Channel: ${label}`}
+                        />
+                        <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
+                          {title.channelBreakdown.map((entry, index) => {
+                            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    {title.channelBreakdown.slice(0, 3).map((channel, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">{channel.channel}</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(channel.revenue)}</span>
+                      </div>
+                    ))}
+                    {title.channelBreakdown.length > 3 && (
+                      <div className="text-xs text-gray-500 italic">+{title.channelBreakdown.length - 3} more channel{title.channelBreakdown.length - 3 !== 1 ? 's' : ''}</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
