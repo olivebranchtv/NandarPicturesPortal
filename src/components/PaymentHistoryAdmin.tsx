@@ -39,7 +39,7 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
           `
           )
           .order('payment_date', { ascending: false })
-          .limit(50000),
+          .limit(100000),
         supabase!.from('content').select('*'),
       ]);
 
