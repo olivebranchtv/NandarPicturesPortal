@@ -182,17 +182,8 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {payments.map((payment) => {
-                    console.log('🔍 RENDERING PAYMENT ROW:', {
-                      id: payment.id,
-                      title: payment.content?.title_name || payment.title_name,
-                      channel: payment.channel,
-                      payment_date: payment.payment_date,
-                      'FULL PAYMENT OBJECT': payment
-                    });
-
-                    return (
-                      <tr key={payment.id} className="hover:bg-gray-50">
+                  {payments.map((payment) => (
+                    <tr key={payment.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           {new Date(payment.payment_date).toLocaleDateString()}
                         </td>
@@ -255,8 +246,7 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                         </div>
                       </td>
                     </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
