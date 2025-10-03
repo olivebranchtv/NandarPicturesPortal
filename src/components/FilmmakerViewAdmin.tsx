@@ -44,7 +44,8 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
           .from('payments')
           .select('*, content:content_id(title_name)')
           .in('content_id', titleIds)
-          .order('payment_date', { ascending: false });
+          .order('payment_date', { ascending: false })
+          .limit(100000);
 
         if (paymentsRes.data && !paymentsRes.error) {
           allPayments = [...allPayments, ...paymentsRes.data];

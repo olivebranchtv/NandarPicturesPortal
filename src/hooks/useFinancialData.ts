@@ -230,6 +230,8 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
           paymentsQuery = paymentsQuery.eq('content_id', selectedTitle);
         }
 
+        paymentsQuery = paymentsQuery.limit(100000);
+
         const { data: paymentsData, error: paymentsError } = await paymentsQuery;
         if (paymentsError) throw paymentsError;
 

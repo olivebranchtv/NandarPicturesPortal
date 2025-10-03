@@ -41,7 +41,8 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
           content(title_name)
         `)
         .in('content_id', titleIds)
-        .order('payment_date', { ascending: false });
+        .order('payment_date', { ascending: false })
+        .limit(100000);
 
       if (paymentsError) throw paymentsError;
 

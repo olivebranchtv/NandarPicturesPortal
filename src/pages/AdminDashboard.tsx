@@ -165,7 +165,8 @@ export function AdminDashboard() {
           *,
           content(title_name, filmmaker_id)
         `)
-        .order('payment_date', { ascending: false });
+        .order('payment_date', { ascending: false })
+        .limit(100000);
 
       console.log('Payments query result:', { paymentsData, paymentsError });
       if (paymentsError) throw paymentsError;

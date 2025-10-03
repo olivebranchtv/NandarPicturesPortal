@@ -154,7 +154,8 @@ export function FilmmakerDashboard() {
             content(title_name)
           `)
           .in('content_id', titleIds)
-          .order('payment_date', { ascending: false });
+          .order('payment_date', { ascending: false })
+          .limit(100000);
 
         paymentsTableData = data || [];
         paymentsTableError = error;
