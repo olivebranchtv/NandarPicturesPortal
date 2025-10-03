@@ -57,8 +57,15 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
       const processedRows: ProcessedRow[] = result.data
         .filter((row) => row.grossAmount !== 0)
         .map((row) => {
+          // Auto-generate title name from channel if empty
+          let titleName = row.titleName;
+          if (!titleName || titleName.trim() === '') {
+            titleName = row.channel ? `Untitled - ${row.channel}` : `Untitled - ${row.paymentDate}`;
+            console.log(`Auto-generated title name: ${titleName}`);
+          }
+
           const match = findBestMatch(
-            row.titleName,
+            titleName,
             titles,
             (content) => content.title_name,
             0.7
@@ -67,6 +74,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
           if (match) {
             return {
               ...row,
+              titleName, // Use the auto-generated or original title name
               matchedContentId: match.item.id,
               matchedTitle: match.item.title_name,
               matchScore: match.score,
@@ -75,6 +83,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
 
           return {
             ...row,
+            titleName, // Use the auto-generated or original title name
             error: 'No matching title found',
           };
         });

@@ -91,11 +91,6 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
 
       console.log(`Row ${i + 1} - Date:`, row[0], '| Amount (Net):', row[1], '| Channel (H):', row[7], '| Title (I):', row[8]);
 
-      if (!titleName || titleName === '') {
-        errors.push(`Row ${i + 1}: Missing title name (Column I is empty)`);
-        continue;
-      }
-
       if (!paymentDate || paymentDate === '') {
         errors.push(`Row ${i + 1}: Missing payment date (Column A is empty)`);
         continue;
@@ -105,6 +100,11 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
         const rawValue = row[1];
         errors.push(`Row ${i + 1}: Invalid amount (Column B: "${rawValue}")`);
         continue;
+      }
+
+      // Allow empty title names - they will be auto-generated from channel data
+      if (!titleName || titleName === '') {
+        console.log(`Row ${i + 1}: Title name is empty, will auto-generate from channel`);
       }
 
       data.push({
