@@ -85,11 +85,11 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       }
 
       const paymentDate = parseDate(row[0]);
-      const grossAmount = parseAmount(row[1]);
+      const grossAmount = parseAmount(row[2]);
       const channel = row[6] ? String(row[6]).trim() : '';
       const titleName = row[8] ? String(row[8]).trim() : '';
 
-      console.log(`Row ${i + 1} - Date:`, row[0], '| Amount (Net):', row[1], '| Channel (G):', row[6], '| Title (I):', row[8]);
+      console.log(`Row ${i + 1} - Date (A):`, row[0], '| Amount (C):', row[2], '| Channel (G):', row[6], '| Title (I):', row[8]);
 
       if (!paymentDate || paymentDate === '') {
         errors.push(`Row ${i + 1}: Missing payment date (Column A is empty)`);
@@ -97,8 +97,8 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       }
 
       if (grossAmount === null || isNaN(grossAmount)) {
-        const rawValue = row[1];
-        errors.push(`Row ${i + 1}: Invalid amount (Column B: "${rawValue}")`);
+        const rawValue = row[2];
+        errors.push(`Row ${i + 1}: Invalid amount (Column C: "${rawValue}")`);
         continue;
       }
 
@@ -152,7 +152,7 @@ export async function parseCSVFile(file: File): Promise<ParseResult> {
 
           const headerRow = rows[0];
           let dateCol = 0;
-          let grossCol = 1;
+          let grossCol = 2;
           let channelCol = 6;
           let titleCol = 8;
 
