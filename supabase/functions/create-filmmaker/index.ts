@@ -183,15 +183,23 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Check if orphaned auth user exists
-    console.log('Checking for orphaned auth user...')
-    const { data: authUserList } = await supabaseAdmin.auth.admin.listUsers()
-    const orphanedAuthUser = authUserList?.users?.find(u => u.email === email)
+    // Check if auth user exists by trying to get user by email
+    console.log('Checking for existing auth user by email...')
+    try {
+      const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const existingAuthUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
-    if (orphanedAuthUser) {
-      console.log('Found orphaned auth user, deleting:', orphanedAuthUser.id)
-      await supabaseAdmin.auth.admin.deleteUser(orphanedAuthUser.id)
-      console.log('Orphaned auth user deleted')
+      if (existingAuthUser) {
+        console.log('Found existing auth user, deleting:', existingAuthUser.id)
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
+        if (deleteError) {
+          console.error('Failed to delete existing auth user:', deleteError)
+        } else {
+          console.log('Successfully deleted existing auth user')
+        }
+      }
+    } catch (listError) {
+      console.error('Error listing auth users:', listError)
     }
 
     // Generate a temporary password
@@ -229,32 +237,37 @@ Deno.serve(async (req) => {
       console.error('No user returned from auth creation')
       return new Response(
         JSON.stringify({ error: 'Failed to create user - no user returned' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     console.log('Auth user created successfully with ID:', newUser.user.id)
 
-    // Insert user profile into users table using service role
+    // Wait a moment for auth user to be fully created
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Insert user profile into users table using service role with upsert
     console.log('Creating user profile...')
     const { data: insertedUser, error: insertError } = await supabaseAdmin
       .from('users')
-      .insert({
+      .upsert({
         id: newUser.user.id,
         email,
         first_name,
         last_name,
         role: 'filmmaker'
+      }, {
+        onConflict: 'id'
       })
       .select()
       .single()
 
     if (insertError) {
       console.error('Error inserting user profile:', insertError)
-      
+
       // Try to clean up the auth user if profile creation failed
       console.log('Attempting to clean up auth user...')
       try {
@@ -263,15 +276,15 @@ Deno.serve(async (req) => {
       } catch (cleanupError) {
         console.error('Failed to cleanup auth user:', cleanupError)
       }
-      
+
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: `Failed to create user profile: ${insertError.message}`,
           details: insertError
         }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
