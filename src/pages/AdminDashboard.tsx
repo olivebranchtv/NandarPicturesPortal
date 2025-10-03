@@ -207,9 +207,24 @@ export function AdminDashboard() {
 
       setStreamingPayments(transformedPayments);
 
-      // Calculate stats
-      const totalRevenue = (paymentsData || []).reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
-      const totalPaidToFilmmakers = (requestsData || []).filter(req => req.status === 'paid').reduce((sum, req) => sum + (req.amount_approved || req.amount_requested || 0), 0);
+      // Calculate stats including historical data from content table
+      // Only count positive amounts from payments table (revenue in, not withdrawals)
+      const revenueFromPayments = (paymentsData || [])
+        .filter(payment => (payment.gross_amount || 0) > 0)
+        .reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
+
+      // Add historical gross amounts from content table
+      const historicalRevenue = (titlesData || []).reduce((sum, title) => sum + (title.previous_gross_amount || 0), 0);
+      const totalRevenue = revenueFromPayments + historicalRevenue;
+
+      // Calculate total paid including historical payments
+      const paidViaRequests = (requestsData || [])
+        .filter(req => req.status === 'paid')
+        .reduce((sum, req) => sum + (req.amount_approved || req.amount_requested || 0), 0);
+
+      const historicalPaid = (titlesData || []).reduce((sum, title) => sum + (title.previous_amount_paid || 0), 0);
+      const totalPaidToFilmmakers = paidViaRequests + historicalPaid;
+
       const companyProfit = totalRevenue * 0.25;
       const pendingRequests = (requestsData || []).filter(req => req.status === 'pending').length;
 
