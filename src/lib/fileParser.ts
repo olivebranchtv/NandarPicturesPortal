@@ -86,13 +86,13 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
 
       const paymentDate = parseDate(row[0]);
       const grossAmount = parseAmount(row[1]);
-      const channel = row[2] ? String(row[2]).trim() : '';
-      const titleName = row[3] ? String(row[3]).trim() : '';
+      const channel = row[7] ? String(row[7]).trim() : '';
+      const titleName = row[8] ? String(row[8]).trim() : '';
 
-      console.log(`Row ${i + 1} - Date:`, row[0], '| Amount:', row[1], '| Channel:', row[2], '| Title:', row[3]);
+      console.log(`Row ${i + 1} - Date:`, row[0], '| Amount (Net):', row[1], '| Channel (H):', row[7], '| Title (I):', row[8]);
 
       if (!titleName || titleName === '') {
-        errors.push(`Row ${i + 1}: Missing title name (Column D is empty)`);
+        errors.push(`Row ${i + 1}: Missing title name (Column I is empty)`);
         continue;
       }
 
@@ -152,9 +152,9 @@ export async function parseCSVFile(file: File): Promise<ParseResult> {
 
           const headerRow = rows[0];
           let dateCol = 0;
-          let grossCol = 2;
-          let channelCol = 6;
-          let titleCol = 7;
+          let grossCol = 1;
+          let channelCol = 7;
+          let titleCol = 8;
 
           for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
