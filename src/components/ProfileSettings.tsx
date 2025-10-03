@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, MapPin, CreditCard, Save, X } from 'lucide-react';
+import { User, Mail, MapPin, CreditCard, Save, X, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -24,9 +24,17 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
     paypal_email: '',
     venmo_username: '',
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
   const [loading, setLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   useEffect(() => {
     if (profile && isOpen) {
@@ -48,6 +56,12 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
     setSuccess('');
+  };
+
+  const handlePasswordChange = (field: string, value: string) => {
+    setPasswordData(prev => ({ ...prev, [field]: value }));
+    setPasswordError('');
+    setPasswordSuccess('');
   };
 
   const handleSave = async () => {
@@ -101,6 +115,49 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
       setError(error.message || 'Failed to update profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Validate passwords
+    if (!passwordData.newPassword || passwordData.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters long');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordSuccess('Password updated successfully!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+
+      setTimeout(() => {
+        setPasswordSuccess('');
+      }, 3000);
+
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      setPasswordError(error.message || 'Failed to update password');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -227,6 +284,57 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
                 <p className="text-xs text-gray-500">
                   Payment methods are used for revenue distributions and payments
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Password Change */}
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-medium flex items-center">
+                  <Lock className="h-5 w-5 mr-2" />
+                  Change Password
+                </h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  label="New Password"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                  placeholder="Enter new password (min 6 characters)"
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                  placeholder="Confirm new password"
+                />
+                <p className="text-xs text-gray-500">
+                  Password must be at least 6 characters long
+                </p>
+
+                {passwordError && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-sm text-red-600">{passwordError}</p>
+                  </div>
+                )}
+
+                {passwordSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                    <p className="text-sm text-green-600">{passwordSuccess}</p>
+                  </div>
+                )}
+
+                <Button
+                  onClick={handlePasswordUpdate}
+                  disabled={passwordLoading || !passwordData.newPassword || !passwordData.confirmPassword}
+                  className="flex items-center space-x-2"
+                  variant="secondary"
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>{passwordLoading ? 'Updating...' : 'Update Password'}</span>
+                </Button>
               </CardContent>
             </Card>
 
