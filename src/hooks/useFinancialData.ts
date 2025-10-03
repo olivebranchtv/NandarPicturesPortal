@@ -87,24 +87,23 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
     });
   };
 
-  const processStreamingPayments = (payments: StreamingPayment[], userRole: 'admin' | 'filmmaker') => {
+  const processStreamingPayments = (payments: any[], userRole: 'admin' | 'filmmaker') => {
     return payments.reduce((acc, payment) => {
       const grossAmount = payment.gross_amount || 0;
-      const distributionPercentage = payment.distribution_percentage || 25;
+      const netAmount = payment.net_amount || 0;
+      const distributionFee = payment.distribution_percentage || 0; // This is actually the fee amount
 
       if (userRole === 'admin') {
-        const companyShare = grossAmount * (distributionPercentage / 100);
         return {
           totalRevenue: acc.totalRevenue + grossAmount,
-          totalExpenses: acc.totalExpenses + (grossAmount - companyShare),
-          netIncome: acc.netIncome + companyShare,
+          totalExpenses: acc.totalExpenses + netAmount,
+          netIncome: acc.netIncome + distributionFee,
         };
       } else {
-        const filmmakerShare = grossAmount * ((100 - distributionPercentage) / 100);
         return {
           totalRevenue: acc.totalRevenue + grossAmount,
-          totalExpenses: acc.totalExpenses + (grossAmount - filmmakerShare),
-          netIncome: acc.netIncome + filmmakerShare,
+          totalExpenses: acc.totalExpenses + distributionFee,
+          netIncome: acc.netIncome + netAmount,
         };
       }
     }, {
@@ -161,18 +160,17 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
       };
 
       const grossAmount = payment.gross_amount || 0;
-      const distributionPercentage = payment.distribution_percentage || 25;
+      const netAmount = payment.net_amount || 0;
+      const distributionFee = payment.distribution_percentage || 0; // This is actually the fee amount
 
       existing.revenue += grossAmount;
 
       if (userRole === 'admin') {
-        const companyShare = grossAmount * (distributionPercentage / 100);
-        existing.expenses += (grossAmount - companyShare);
-        existing.net += companyShare;
+        existing.expenses += netAmount;
+        existing.net += distributionFee;
       } else {
-        const filmmakerShare = grossAmount * ((100 - distributionPercentage) / 100);
-        existing.expenses += (grossAmount - filmmakerShare);
-        existing.net += filmmakerShare;
+        existing.expenses += distributionFee;
+        existing.net += netAmount;
       }
 
       monthlyData.set(month, existing);
@@ -206,14 +204,12 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         const filteredTitles = titlesData || [];
         setTitles(filteredTitles);
 
-        // Fetch streaming payments
-        const titleIds = filteredTitles.map(t => t.id);
-
+        // Fetch payments from the payments table
         let paymentsQuery = supabase
-          .from('streaming_payments')
+          .from('payments')
           .select(`
             *,
-            content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
+            content(title_name)
           `);
 
         const dateFilter = getDateFilter();
@@ -221,18 +217,33 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
           paymentsQuery = paymentsQuery.gte('payment_date', dateFilter);
         }
 
-        if (userRole === 'filmmaker' && userId && titleIds.length > 0) {
-          paymentsQuery = paymentsQuery.in('title_id', titleIds);
+        if (userRole === 'filmmaker' && userId) {
+          paymentsQuery = paymentsQuery.eq('filmmaker_id', userId);
         }
 
         if (selectedTitle) {
-          paymentsQuery = paymentsQuery.eq('title_id', selectedTitle);
+          paymentsQuery = paymentsQuery.eq('content_id', selectedTitle);
         }
 
         const { data: paymentsData, error: paymentsError } = await paymentsQuery;
         if (paymentsError) throw paymentsError;
 
-        const streamingPayments = paymentsData || [];
+        // Transform payments to match StreamingPayment format
+        const streamingPayments = (paymentsData || []).map(p => ({
+          id: p.id,
+          title_id: p.content_id,
+          platform: p.channel || 'Payment',
+          outlet: null,
+          payment_date: p.payment_date,
+          gross_amount: p.gross_amount || 0,
+          net_amount: p.net_amount || 0,
+          distribution_percentage: p.distribution_fee || 0,
+          notes: p.notes,
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+          content: p.content,
+          filmmaker_id: p.filmmaker_id
+        }));
 
         // Process historical data
         const historicalTotals = processHistoricalData(filteredTitles, userRole);
