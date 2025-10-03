@@ -14,6 +14,7 @@ import { PaymentHistoryAdmin } from '../components/PaymentHistoryAdmin';
 import { FilmmakerViewAdmin } from '../components/FilmmakerViewAdmin';
 import { BulkTitleImport } from '../components/BulkTitleImport';
 import { AdminUserManagement } from '../components/AdminUserManagement';
+import { FilmmakerUserManagement } from '../components/FilmmakerUserManagement';
 
 interface AdminStats {
   totalUsers: number;
@@ -823,7 +824,9 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       ) : activeTab === 'filmmakers' ? (
-        <Card>
+        <div className="space-y-6">
+          <FilmmakerUserManagement />
+          <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold flex items-center">
@@ -904,6 +907,7 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+        </div>
       ) : activeTab === 'requests' ? (
         <Card>
           <CardHeader>
