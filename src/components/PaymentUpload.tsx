@@ -108,7 +108,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
       const matchedRows = parsedRows.filter((row) => row.matchedContentId);
       const unmatchedRows = parsedRows.filter((row) => !row.matchedContentId);
 
-      // Process matched rows
+      // Process matched rows in batches of 500
       if (matchedRows.length > 0) {
         const paymentsToInsert = matchedRows.map((row) => {
           const content = titles.find((t) => t.id === row.matchedContentId);
@@ -136,19 +136,29 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
           };
         });
 
-        const { error: paymentsError } = await supabase!
-          .from('payments')
-          .insert(paymentsToInsert);
+        // Insert in batches of 500
+        const batchSize = 500;
+        for (let i = 0; i < paymentsToInsert.length; i += batchSize) {
+          const batch = paymentsToInsert.slice(i, i + batchSize);
+          console.log(`Inserting batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(paymentsToInsert.length / batchSize)}`);
 
-        if (paymentsError) {
-          console.error('Error inserting payments:', paymentsError);
-          throw new Error(`Failed to insert payments: ${paymentsError.message}`);
+          const { error: paymentsError } = await supabase!
+            .from('payments')
+            .insert(batch);
+
+          if (paymentsError) {
+            console.error('Error inserting payments batch:', paymentsError);
+            throw new Error(`Failed to insert payments batch: ${paymentsError.message}`);
+          }
         }
       }
 
       // Auto-create titles for unmatched rows and add to unassigned_content
       if (unmatchedRows.length > 0) {
-        // Create titles in content table without filmmaker assignment
+        const batchSize = 500;
+        const allCreatedTitles = [];
+
+        // Create titles in batches
         const titlesToCreate = unmatchedRows.map((row) => ({
           title_name: row.titleName,
           content_type: 'movie' as const,
@@ -157,18 +167,27 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
           created_at: new Date().toISOString(),
         }));
 
-        const { data: createdTitles, error: titlesError } = await supabase!
-          .from('content')
-          .insert(titlesToCreate)
-          .select();
+        for (let i = 0; i < titlesToCreate.length; i += batchSize) {
+          const batch = titlesToCreate.slice(i, i + batchSize);
+          console.log(`Creating titles batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(titlesToCreate.length / batchSize)}`);
 
-        if (titlesError) {
-          console.error('Error creating titles:', titlesError);
-          throw new Error(`Failed to create titles: ${titlesError.message}`);
+          const { data: createdTitles, error: titlesError } = await supabase!
+            .from('content')
+            .insert(batch)
+            .select();
+
+          if (titlesError) {
+            console.error('Error creating titles:', titlesError);
+            throw new Error(`Failed to create titles: ${titlesError.message}`);
+          }
+
+          if (createdTitles) {
+            allCreatedTitles.push(...createdTitles);
+          }
         }
 
-        // Now insert payments for these newly created titles
-        if (createdTitles && createdTitles.length > 0) {
+        // Now insert payments for these newly created titles in batches
+        if (allCreatedTitles.length > 0) {
           const newPayments = unmatchedRows.map((row, index) => {
             const grossAmount = roundToTwoDecimals(row.grossAmount);
             const distributionFee = calculateDistributionFee(grossAmount);
@@ -181,7 +200,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
             });
 
             return {
-              content_id: createdTitles[index].id,
+              content_id: allCreatedTitles[index].id,
               filmmaker_id: null,
               payment_date: row.paymentDate,
               gross_amount: grossAmount,
@@ -194,17 +213,22 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
             };
           });
 
-          const { error: newPaymentsError } = await supabase!
-            .from('payments')
-            .insert(newPayments);
+          for (let i = 0; i < newPayments.length; i += batchSize) {
+            const batch = newPayments.slice(i, i + batchSize);
+            console.log(`Inserting new payments batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(newPayments.length / batchSize)}`);
 
-          if (newPaymentsError) {
-            console.error('Error inserting new payments:', newPaymentsError);
-            throw new Error(`Failed to insert new payments: ${newPaymentsError.message}`);
+            const { error: newPaymentsError } = await supabase!
+              .from('payments')
+              .insert(batch);
+
+            if (newPaymentsError) {
+              console.error('Error inserting new payments:', newPaymentsError);
+              throw new Error(`Failed to insert new payments: ${newPaymentsError.message}`);
+            }
           }
         }
 
-        // Also add to unassigned_content for admin to assign filmmaker
+        // Also add to unassigned_content for admin to assign filmmaker in batches
         const unassignedToInsert = unmatchedRows.map((row) => ({
           title_name: row.titleName,
           payment_date: row.paymentDate,
@@ -214,13 +238,18 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
           created_by: adminId,
         }));
 
-        const { error: unassignedError } = await supabase!
-          .from('unassigned_content')
-          .insert(unassignedToInsert);
+        for (let i = 0; i < unassignedToInsert.length; i += batchSize) {
+          const batch = unassignedToInsert.slice(i, i + batchSize);
+          console.log(`Inserting unassigned content batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(unassignedToInsert.length / batchSize)}`);
 
-        if (unassignedError) {
-          console.error('Error inserting unassigned content:', unassignedError);
-          throw new Error(`Failed to insert unassigned content: ${unassignedError.message}`);
+          const { error: unassignedError } = await supabase!
+            .from('unassigned_content')
+            .insert(batch);
+
+          if (unassignedError) {
+            console.error('Error inserting unassigned content:', unassignedError);
+            throw new Error(`Failed to insert unassigned content: ${unassignedError.message}`);
+          }
         }
       }
 
