@@ -547,15 +547,15 @@ export function FilmmakerDashboard() {
                     </p>
                   </div>
 
-                  {stats.availableBalance >= 100 ? (
-                    <Button
-                      onClick={() => setShowRequestPayment(true)}
-                      className="w-full"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Request Payment
-                    </Button>
-                  ) : (
+                  <Button
+                    onClick={() => setShowRequestPayment(true)}
+                    className="w-full"
+                    disabled={stats.availableBalance < 100}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Request Payment
+                  </Button>
+                  {stats.availableBalance < 100 && (
                     <div className="text-center p-4 bg-yellow-50 rounded-lg">
                       <p className="text-sm text-yellow-800">
                         Minimum balance of $100 required for payment requests
