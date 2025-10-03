@@ -57,16 +57,16 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
       const processedRows: ProcessedRow[] = result.data
         .filter((row) => row.grossAmount !== 0)
         .map((row) => {
-          // If original title name is empty, don't try to match - force new title creation
+          // If original title name is empty, use channel name as title
           const hasOriginalTitle = row.titleName && row.titleName.trim() !== '';
 
-          // Auto-generate title name from channel if empty
+          // Use channel name directly as title name if Column D is empty
           let titleName = row.titleName;
           if (!hasOriginalTitle) {
-            titleName = row.channel ? `Untitled - ${row.channel}` : `Untitled - ${row.paymentDate}`;
-            console.log(`Auto-generated title name: ${titleName} - will create new title`);
+            titleName = row.channel && row.channel.trim() !== '' ? row.channel.trim() : `Untitled - ${row.paymentDate}`;
+            console.log(`Using channel as title name: ${titleName}`);
 
-            // Don't try to match - force this to create a new title
+            // Don't try to match - force this to create a new title with channel name
             return {
               ...row,
               titleName,
