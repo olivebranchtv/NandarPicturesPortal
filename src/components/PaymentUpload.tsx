@@ -120,13 +120,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
           const distributionFee = calculateDistributionFee(grossAmount);
           const netAmount = calculateNetAmount(grossAmount);
 
-          console.log('Inserting matched payment:', {
-            title: row.titleName,
-            channel: row.channel,
-            channelValue: row.channel || null
-          });
-
-          return {
+          const paymentRecord = {
             content_id: row.matchedContentId,
             filmmaker_id: content?.filmmaker_id,
             payment_date: row.paymentDate,
@@ -138,6 +132,15 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
             payment_method: 'excel_upload' as const,
             created_by: adminId,
           };
+
+          console.log('🔍 MATCHED PAYMENT RECORD TO INSERT:', {
+            title: row.titleName,
+            paymentDate: row.paymentDate,
+            channel: row.channel,
+            'ACTUAL RECORD': paymentRecord
+          });
+
+          return paymentRecord;
         });
 
         // Insert in batches of 500
@@ -197,13 +200,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
             const distributionFee = calculateDistributionFee(grossAmount);
             const netAmount = calculateNetAmount(grossAmount);
 
-            console.log('Inserting unmatched payment:', {
-              title: row.titleName,
-              channel: row.channel,
-              channelValue: row.channel || null
-            });
-
-            return {
+            const paymentRecord = {
               content_id: allCreatedTitles[index].id,
               filmmaker_id: null,
               payment_date: row.paymentDate,
@@ -215,6 +212,15 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
               payment_method: 'excel_upload' as const,
               created_by: adminId,
             };
+
+            console.log('🔍 UNMATCHED PAYMENT RECORD TO INSERT:', {
+              title: row.titleName,
+              paymentDate: row.paymentDate,
+              channel: row.channel,
+              'ACTUAL RECORD': paymentRecord
+            });
+
+            return paymentRecord;
           });
 
           for (let i = 0; i < newPayments.length; i += batchSize) {
