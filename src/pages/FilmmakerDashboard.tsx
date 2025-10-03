@@ -284,7 +284,7 @@ export function FilmmakerDashboard() {
 
         return {
           streamingEarned: acc.streamingEarned + (grossAmount > 0 ? grossAmount : 0),
-          streamingNet: acc.streamingNet + (netAmount > 0 ? netAmount : 0),
+          streamingNet: acc.streamingNet + netAmount, // Include both positive and negative
           streamingPaid: acc.streamingPaid + (netAmount < 0 ? Math.abs(netAmount) : 0)
         };
       }, { streamingEarned: 0, streamingNet: 0, streamingPaid: 0 });
@@ -311,12 +311,14 @@ export function FilmmakerDashboard() {
       setPaymentRequests(requestsData || []);
 
       // Calculate final stats
+      // For display purposes: show total earned including historical
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
-      const totalPaidWithHistory = currentPaid + historicalTotals.historicalPaid + streamingTotals.streamingPaid;
+      const totalPaidWithHistory = historicalTotals.historicalPaid + streamingTotals.streamingPaid;
 
-      // Calculate available balance as the difference between net income and total paid
-      const totalNetIncome = historicalTotals.historicalNet + streamingTotals.streamingNet;
-      const availableBalance = Math.max(0, totalNetIncome);
+      // IMPORTANT: Available balance should ONLY come from payments table
+      // Historical data is already settled (previous_balance_due = 0)
+      // streamingNet already includes both positive revenue and negative withdrawals
+      const availableBalance = Math.max(0, streamingTotals.streamingNet);
 
       const finalStats = {
         totalTitles: filmmakertitles.length,
