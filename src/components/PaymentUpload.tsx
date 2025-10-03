@@ -107,6 +107,12 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
           const distributionFee = calculateDistributionFee(grossAmount);
           const netAmount = calculateNetAmount(grossAmount);
 
+          console.log('Inserting matched payment:', {
+            title: row.titleName,
+            channel: row.channel,
+            channelValue: row.channel || null
+          });
+
           return {
             content_id: row.matchedContentId,
             filmmaker_id: content?.filmmaker_id,
@@ -158,6 +164,12 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
             const grossAmount = roundToTwoDecimals(row.grossAmount);
             const distributionFee = calculateDistributionFee(grossAmount);
             const netAmount = calculateNetAmount(grossAmount);
+
+            console.log('Inserting unmatched payment:', {
+              title: row.titleName,
+              channel: row.channel,
+              channelValue: row.channel || null
+            });
 
             return {
               content_id: createdTitles[index].id,

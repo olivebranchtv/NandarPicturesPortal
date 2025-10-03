@@ -89,6 +89,8 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       const channel = row[6] ? String(row[6]).trim() : '';
       const titleName = row[7] ? String(row[7]).trim() : '';
 
+      console.log(`Row ${i + 1} - Channel (col G):`, row[6], '| Title (col H):', row[7]);
+
       if (!titleName || titleName === '') {
         errors.push(`Row ${i + 1}: Missing title name (Column H is empty)`);
         continue;
