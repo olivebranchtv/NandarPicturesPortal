@@ -781,7 +781,17 @@ export function AdminDashboard() {
                               <div className="text-xs text-gray-400">{title.filmmaker.email}</div>
                             </div>
                           ) : (
-                            <span className="text-red-500">No filmmaker assigned</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-red-500">No filmmaker assigned</span>
+                              <Button
+                                size="sm"
+                                onClick={() => handleAssignFilmmakerClick(title)}
+                                className="flex items-center space-x-1"
+                              >
+                                <Users className="h-3 w-3" />
+                                <span>Assign</span>
+                              </Button>
+                            </div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
