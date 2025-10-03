@@ -97,6 +97,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
       const matchedRows = parsedRows.filter((row) => row.matchedContentId);
       const unmatchedRows = parsedRows.filter((row) => !row.matchedContentId);
 
+      // Process matched rows
       if (matchedRows.length > 0) {
         const paymentsToInsert = matchedRows.map((row) => {
           const content = titles.find((t) => t.id === row.matchedContentId);
@@ -128,7 +129,59 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
         }
       }
 
+      // Auto-create titles for unmatched rows and add to unassigned_content
       if (unmatchedRows.length > 0) {
+        // Create titles in content table without filmmaker assignment
+        const titlesToCreate = unmatchedRows.map((row) => ({
+          title_name: row.titleName,
+          content_type: 'movie' as const,
+          filmmaker_id: null,
+          status: 'approved' as const,
+          created_at: new Date().toISOString(),
+        }));
+
+        const { data: createdTitles, error: titlesError } = await supabase!
+          .from('content')
+          .insert(titlesToCreate)
+          .select();
+
+        if (titlesError) {
+          console.error('Error creating titles:', titlesError);
+          throw new Error(`Failed to create titles: ${titlesError.message}`);
+        }
+
+        // Now insert payments for these newly created titles
+        if (createdTitles && createdTitles.length > 0) {
+          const newPayments = unmatchedRows.map((row, index) => {
+            const grossAmount = roundToTwoDecimals(row.grossAmount);
+            const distributionFee = calculateDistributionFee(grossAmount);
+            const netAmount = calculateNetAmount(grossAmount);
+
+            return {
+              content_id: createdTitles[index].id,
+              filmmaker_id: null,
+              payment_date: row.paymentDate,
+              gross_amount: grossAmount,
+              distribution_fee: distributionFee,
+              net_amount: netAmount,
+              channel: row.channel || null,
+              title_name: row.titleName,
+              payment_method: 'excel_upload' as const,
+              created_by: adminId,
+            };
+          });
+
+          const { error: newPaymentsError } = await supabase!
+            .from('payments')
+            .insert(newPayments);
+
+          if (newPaymentsError) {
+            console.error('Error inserting new payments:', newPaymentsError);
+            throw new Error(`Failed to insert new payments: ${newPaymentsError.message}`);
+          }
+        }
+
+        // Also add to unassigned_content for admin to assign filmmaker
         const unassignedToInsert = unmatchedRows.map((row) => ({
           title_name: row.titleName,
           payment_date: row.paymentDate,
@@ -149,7 +202,7 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
       }
 
       alert(
-        `Upload complete!\n${matchedRows.length} payments processed\n${unmatchedRows.length} titles need manual assignment`
+        `Upload complete!\n${matchedRows.length} payments matched to existing titles\n${unmatchedRows.length} new titles created and need filmmaker assignment`
       );
 
       onUploadComplete();
