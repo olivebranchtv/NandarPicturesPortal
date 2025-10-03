@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Check if user already exists
+    // Check if user already exists in users table
     console.log('Checking if user already exists...')
     const { data: existingUser, error: existingUserError } = await supabaseAdmin
       .from('users')
@@ -158,9 +158,9 @@ Deno.serve(async (req) => {
       console.error('Error checking existing user:', existingUserError)
       return new Response(
         JSON.stringify({ error: 'Error checking existing user' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
     if (existingUser) {
       console.log('User already exists:', existingUser)
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: `User with email ${email} already exists with role: ${existingUser.role}`,
           existing_user: {
             id: existingUser.id,
@@ -176,11 +176,22 @@ Deno.serve(async (req) => {
             role: existingUser.role
           }
         }),
-        { 
-          status: 409, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
+    }
+
+    // Check if orphaned auth user exists
+    console.log('Checking for orphaned auth user...')
+    const { data: authUserList } = await supabaseAdmin.auth.admin.listUsers()
+    const orphanedAuthUser = authUserList?.users?.find(u => u.email === email)
+
+    if (orphanedAuthUser) {
+      console.log('Found orphaned auth user, deleting:', orphanedAuthUser.id)
+      await supabaseAdmin.auth.admin.deleteUser(orphanedAuthUser.id)
+      console.log('Orphaned auth user deleted')
     }
 
     // Generate a temporary password
@@ -203,13 +214,13 @@ Deno.serve(async (req) => {
     if (createError) {
       console.error('Error creating auth user:', createError)
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: `Failed to create auth user: ${createError.message}`,
           details: createError
         }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
