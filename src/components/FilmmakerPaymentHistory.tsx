@@ -17,20 +17,51 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
 
   const fetchPayments = async () => {
     try {
-      const { data, error } = await supabase!
-        .from('payments')
-        .select(
-          `
+      // First, get all titles owned by this filmmaker
+      const { data: titlesData, error: titlesError } = await supabase!
+        .from('content')
+        .select('id, email')
+        .or(`filmmaker_id.eq.${filmmakerI},owner_id.eq.${filmmakerI}`);
+
+      if (titlesError) throw titlesError;
+
+      const titleIds = titlesData?.map(t => t.id) || [];
+
+      if (titleIds.length === 0) {
+        setPayments([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch streaming payments for those titles
+      const { data: streamingData, error: streamingError } = await supabase!
+        .from('streaming_payments')
+        .select(`
           *,
-          content:content_id(title_name)
-        `
-        )
-        .eq('filmmaker_id', filmmakerI)
+          content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
+        `)
+        .in('title_id', titleIds)
         .order('payment_date', { ascending: false });
 
-      if (error) throw error;
+      if (streamingError) throw streamingError;
 
-      setPayments(data || []);
+      // Transform streaming_payments to match Payment interface
+      const transformedPayments = (streamingData || []).map(sp => ({
+        id: sp.id,
+        content_id: sp.title_id,
+        filmmaker_id: filmmakerI,
+        payment_date: sp.payment_date,
+        gross_amount: sp.gross_amount || 0,
+        distribution_fee: ((sp.gross_amount || 0) * (sp.distribution_percentage || 25) / 100),
+        net_amount: sp.net_amount || 0,
+        title_name: sp.content?.title_name,
+        channel: sp.platform || '',
+        content: sp.content,
+        created_at: sp.created_at,
+        updated_at: sp.updated_at
+      }));
+
+      setPayments(transformedPayments as any);
     } catch (error) {
       console.error('Error fetching payment history:', error);
     } finally {
