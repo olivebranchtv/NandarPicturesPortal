@@ -182,31 +182,40 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {payments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {new Date(payment.payment_date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {payment.content?.title_name || payment.title_name || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {payment.filmmaker ? (
-                          <div>
+                  {payments.map((payment) => {
+                    console.log('🔍 RENDERING PAYMENT ROW:', {
+                      id: payment.id,
+                      title: payment.content?.title_name || payment.title_name,
+                      channel: payment.channel,
+                      payment_date: payment.payment_date,
+                      'FULL PAYMENT OBJECT': payment
+                    });
+
+                    return (
+                      <tr key={payment.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {new Date(payment.payment_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {payment.content?.title_name || payment.title_name || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {payment.filmmaker ? (
                             <div>
-                              {payment.filmmaker.first_name} {payment.filmmaker.last_name}
+                              <div>
+                                {payment.filmmaker.first_name} {payment.filmmaker.last_name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {payment.filmmaker.email}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {payment.filmmaker.email}
-                            </div>
-                          </div>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {payment.channel || '-'}
-                      </td>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {payment.channel || '-'}
+                        </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         ${payment.gross_amount.toLocaleString()}
                       </td>
@@ -246,7 +255,8 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
