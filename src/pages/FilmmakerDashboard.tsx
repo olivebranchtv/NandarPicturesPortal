@@ -293,8 +293,11 @@ export function FilmmakerDashboard() {
 
   const handleRequestPayment = async () => {
     const amount = parseFloat(requestAmount);
-    if (!profile?.id || isNaN(amount) || amount < 100 || amount > stats.availableBalance) {
-      alert('Please enter a valid amount between $100 and your available balance');
+    const maxAmount = Math.round(stats.availableBalance * 100) / 100;
+    const requestedAmount = Math.round(amount * 100) / 100;
+
+    if (!profile?.id || isNaN(amount) || requestedAmount < 100 || requestedAmount > maxAmount) {
+      alert(`Please enter a valid amount between $100 and $${maxAmount.toFixed(2)}`);
       return;
     }
 
@@ -304,7 +307,7 @@ export function FilmmakerDashboard() {
         .insert({
           filmmaker_id: profile.id,
           content_id: titles[0]?.id,
-          amount_requested: amount,
+          amount_requested: requestedAmount,
         });
 
       if (error) throw error;
