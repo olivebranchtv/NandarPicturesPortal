@@ -270,8 +270,8 @@ export function FilmmakerDashboard() {
 
   const handleRequestPayment = async () => {
     const amount = parseFloat(requestAmount);
-    if (!profile?.id || isNaN(amount) || amount < 25 || amount > stats.availableBalance) {
-      alert('Please enter a valid amount between $25 and your available balance');
+    if (!profile?.id || isNaN(amount) || amount < 100 || amount > stats.availableBalance) {
+      alert('Please enter a valid amount between $100 and your available balance');
       return;
     }
 
@@ -547,7 +547,7 @@ export function FilmmakerDashboard() {
                     </p>
                   </div>
 
-                  {stats.availableBalance >= 25 ? (
+                  {stats.availableBalance >= 100 ? (
                     <Button
                       onClick={() => setShowRequestPayment(true)}
                       className="w-full"
@@ -558,7 +558,7 @@ export function FilmmakerDashboard() {
                   ) : (
                     <div className="text-center p-4 bg-yellow-50 rounded-lg">
                       <p className="text-sm text-yellow-800">
-                        Minimum balance of $25 required for payment requests
+                        Minimum balance of $100 required for payment requests
                       </p>
                     </div>
                   )}
@@ -858,7 +858,7 @@ export function FilmmakerDashboard() {
                     ${stats.availableBalance.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500">
-                    Minimum request: $25
+                    Minimum request: $100
                   </div>
                 </div>
               </div>
@@ -869,7 +869,7 @@ export function FilmmakerDashboard() {
                   value={requestAmount}
                   onChange={(e) => setRequestAmount(e.target.value)}
                   placeholder="Enter amount"
-                  min="25"
+                  min="100"
                   max={stats.availableBalance}
                 />
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
