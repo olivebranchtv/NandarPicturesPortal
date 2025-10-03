@@ -137,35 +137,46 @@ export function FilmmakerDashboard() {
       const balance = balanceData && balanceData.length > 0 ? balanceData[0] : null;
       setBalance(balance);
 
-      // Fetch streaming payments for filmmaker's titles
-      console.log('Step 3: Fetching streaming payments...');
-      const titleIds = filmmakertitles.map(title => title.id);
-      let streamingPaymentsData: any[] = [];
-      
-      if (titleIds.length > 0) {
-        console.log('Fetching payments for title IDs:', titleIds);
-        const { data: paymentsData, error: paymentsError } = await supabase
-          .from('streaming_payments')
-          .select(`
-            *,
-            content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
-          `)
-          .in('title_id', titleIds)
-          .order('payment_date', { ascending: false });
+      // Fetch payments from the payments table for this filmmaker
+      console.log('Step 3: Fetching payments from payments table...');
+      const { data: paymentsTableData, error: paymentsTableError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          content(title_name)
+        `)
+        .eq('filmmaker_id', profile.id)
+        .order('payment_date', { ascending: false });
 
-        console.log('Streaming payments query result:', { 
-          paymentsData, 
-          paymentsError,
-          count: paymentsData?.length || 0 
-        });
-        
-        if (paymentsError) {
-          console.error('Error fetching streaming payments:', paymentsError);
-        } else {
-          streamingPaymentsData = paymentsData || [];
-        }
+      console.log('Payments table query result:', {
+        paymentsTableData,
+        paymentsTableError,
+        count: paymentsTableData?.length || 0
+      });
+
+      let streamingPaymentsData: any[] = [];
+
+      if (paymentsTableError) {
+        console.error('Error fetching payments:', paymentsTableError);
       } else {
-        console.log('No title IDs to fetch payments for');
+        // Transform payments table data to match streaming_payments format
+        streamingPaymentsData = (paymentsTableData || []).map(payment => ({
+          id: payment.id,
+          title_id: payment.content_id,
+          platform: payment.channel || 'Payment',
+          outlet: null,
+          payment_date: payment.payment_date,
+          gross_amount: payment.gross_amount || 0,
+          net_amount: payment.net_amount || 0,
+          distribution_percentage: payment.distribution_fee || 0,
+          notes: payment.notes,
+          created_at: payment.created_at,
+          updated_at: payment.updated_at,
+          content: {
+            title_name: payment.content?.title_name || payment.title_name || 'Unknown',
+            filmmaker_id: payment.filmmaker_id
+          }
+        }));
       }
 
       // Process historical data from titles
