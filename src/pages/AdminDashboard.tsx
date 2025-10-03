@@ -542,7 +542,7 @@ export function AdminDashboard() {
           net_amount: netAmount,
           channel: newPayment.platform,
           title_name: titleData.title_name,
-          payment_method: 'manual_entry',
+          payment_method: 'manual',
           notes: newPayment.notes || null,
           created_by: profile?.id,
         });
