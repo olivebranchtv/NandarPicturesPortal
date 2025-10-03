@@ -23,6 +23,10 @@ export function FilmmakerUserManagement() {
   const [success, setSuccess] = useState('');
   const [creating, setCreating] = useState(false);
   const [tempPassword, setTempPassword] = useState('');
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
 
   useEffect(() => {
     fetchFilmmakers();
@@ -99,6 +103,54 @@ export function FilmmakerUserManagement() {
       setError(err.message || 'Failed to create filmmaker account');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleResetPassword = async (filmmakerUserId: string) => {
+    if (!newPassword || newPassword.length < 6) {
+      setResetError('Password must be at least 6 characters');
+      return;
+    }
+
+    setResetError('');
+    setResetSuccess('');
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-filmmaker-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: filmmakerUserId,
+            new_password: newPassword
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      setResetSuccess('Password reset successfully!');
+      setNewPassword('');
+      setTimeout(() => {
+        setResettingPassword(null);
+        setResetSuccess('');
+      }, 2000);
+    } catch (err: any) {
+      setResetError(err.message || 'Failed to reset password');
     }
   };
 
@@ -208,12 +260,88 @@ export function FilmmakerUserManagement() {
                       Created {new Date(filmmaker.created_at).toLocaleDateString()}
                     </p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setResettingPassword(filmmaker.id);
+                      setResetError('');
+                      setResetSuccess('');
+                      setNewPassword('');
+                    }}
+                    className="flex items-center space-x-1"
+                  >
+                    <Key className="h-3 w-3" />
+                    <span>Reset Password</span>
+                  </Button>
                 </div>
               ))}
             </div>
           )}
         </div>
       </CardContent>
+
+      {/* Reset Password Modal */}
+      {resettingPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Key className="h-5 w-5 mr-2 text-blue-600" />
+                Reset Filmmaker Password
+              </h3>
+
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Filmmaker:</span>{' '}
+                  {filmmakers.find(f => f.id === resettingPassword)?.email}
+                </p>
+              </div>
+
+              <Input
+                type="password"
+                label="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password (min 6 characters)"
+                minLength={6}
+              />
+
+              {resetError && (
+                <div className="mt-3 bg-red-50 border border-red-200 rounded-md p-3">
+                  <p className="text-sm text-red-600">{resetError}</p>
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-md p-3">
+                  <p className="text-sm text-green-600">{resetSuccess}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setResettingPassword(null);
+                    setNewPassword('');
+                    setResetError('');
+                    setResetSuccess('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleResetPassword(resettingPassword)}
+                  disabled={!newPassword || newPassword.length < 6}
+                >
+                  Reset Password
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
