@@ -21,6 +21,9 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
     channel: '',
     notes: '',
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const rowsPerPage = 100;
 
   useEffect(() => {
     fetchPayments();
@@ -144,8 +147,20 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold flex items-center">
               <DollarSign className="h-5 w-5 mr-2" />
-              Payment History ({payments.length})
+              Payment History ({payments.length} total)
             </h3>
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                placeholder="Search by title, channel, filmmaker..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-64"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -184,7 +199,21 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {payments.map((payment) => (
+                  {payments
+                    .filter(payment => {
+                      if (!searchTerm) return true;
+                      const search = searchTerm.toLowerCase();
+                      return (
+                        payment.content?.title_name?.toLowerCase().includes(search) ||
+                        payment.title_name?.toLowerCase().includes(search) ||
+                        payment.channel?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.email?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.first_name?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.last_name?.toLowerCase().includes(search)
+                      );
+                    })
+                    .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                    .map((payment) => (
                     <tr key={payment.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           {new Date(payment.payment_date).toLocaleDateString()}
@@ -251,6 +280,78 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination Controls */}
+              <div className="mt-6 flex items-center justify-between border-t pt-4">
+                <div className="text-sm text-gray-700">
+                  Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, payments.filter(payment => {
+                    if (!searchTerm) return true;
+                    const search = searchTerm.toLowerCase();
+                    return (
+                      payment.content?.title_name?.toLowerCase().includes(search) ||
+                      payment.title_name?.toLowerCase().includes(search) ||
+                      payment.channel?.toLowerCase().includes(search) ||
+                      payment.filmmaker?.email?.toLowerCase().includes(search) ||
+                      payment.filmmaker?.first_name?.toLowerCase().includes(search) ||
+                      payment.filmmaker?.last_name?.toLowerCase().includes(search)
+                    );
+                  }).length)} of {payments.filter(payment => {
+                    if (!searchTerm) return true;
+                    const search = searchTerm.toLowerCase();
+                    return (
+                      payment.content?.title_name?.toLowerCase().includes(search) ||
+                      payment.title_name?.toLowerCase().includes(search) ||
+                      payment.channel?.toLowerCase().includes(search) ||
+                      payment.filmmaker?.email?.toLowerCase().includes(search) ||
+                      payment.filmmaker?.first_name?.toLowerCase().includes(search) ||
+                      payment.filmmaker?.last_name?.toLowerCase().includes(search)
+                    );
+                  }).length} payments
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="px-4 py-2 text-sm text-gray-700">
+                    Page {currentPage} of {Math.ceil(payments.filter(payment => {
+                      if (!searchTerm) return true;
+                      const search = searchTerm.toLowerCase();
+                      return (
+                        payment.content?.title_name?.toLowerCase().includes(search) ||
+                        payment.title_name?.toLowerCase().includes(search) ||
+                        payment.channel?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.email?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.first_name?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.last_name?.toLowerCase().includes(search)
+                      );
+                    }).length / rowsPerPage)}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    disabled={currentPage >= Math.ceil(payments.filter(payment => {
+                      if (!searchTerm) return true;
+                      const search = searchTerm.toLowerCase();
+                      return (
+                        payment.content?.title_name?.toLowerCase().includes(search) ||
+                        payment.title_name?.toLowerCase().includes(search) ||
+                        payment.channel?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.email?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.first_name?.toLowerCase().includes(search) ||
+                        payment.filmmaker?.last_name?.toLowerCase().includes(search)
+                      );
+                    }).length / rowsPerPage)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="text-center py-12">
