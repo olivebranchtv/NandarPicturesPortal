@@ -473,16 +473,46 @@ export function FilmmakerDashboard() {
   }
 
   // Create chart data with both streaming payments and historical data
-  const chartData = streamingPayments
-    .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
-    .slice(0, 8)
-    .map(payment => ({
-      title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
-      gross: payment.gross_amount || 0,
-      net: payment.net_amount || 0,
-      date: payment.payment_date,
-      platform: payment.platform
-    }));
+  // Aggregate payments by title and include historical data
+  const titleMap = new Map<string, { title: string, gross: number, net: number }>();
+
+  // Add historical data from titles
+  titles.forEach(title => {
+    const previousGross = title.previous_gross_amount || 0;
+    const previousNet = title.previous_net_revenue || 0;
+
+    if (previousGross > 0 || previousNet > 0) {
+      const displayTitle = title.title_name.substring(0, 15) + (title.title_name.length > 15 ? '...' : '');
+      titleMap.set(title.id, {
+        title: displayTitle,
+        gross: previousGross,
+        net: previousNet
+      });
+    }
+  });
+
+  // Add streaming payments data
+  streamingPayments.forEach(payment => {
+    const titleId = payment.title_id;
+    const displayTitle = payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : '');
+
+    if (titleMap.has(titleId)) {
+      const existing = titleMap.get(titleId)!;
+      existing.gross += payment.gross_amount || 0;
+      existing.net += payment.net_amount || 0;
+    } else {
+      titleMap.set(titleId, {
+        title: displayTitle,
+        gross: payment.gross_amount || 0,
+        net: payment.net_amount || 0
+      });
+    }
+  });
+
+  // Convert to array and sort by gross revenue
+  const chartData = Array.from(titleMap.values())
+    .filter(item => item.gross > 0 || item.net !== 0)
+    .sort((a, b) => b.gross - a.gross);
 
   return (
     <div className="space-y-6">
