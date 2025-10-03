@@ -277,10 +277,17 @@ export function FilmmakerDashboard() {
       console.log('Historical totals calculated:', historicalTotals);
 
       // Calculate streaming payment totals
-      const streamingTotals = streamingPaymentsData.reduce((acc, payment) => ({
-        streamingEarned: acc.streamingEarned + (payment.gross_amount || 0),
-        streamingNet: acc.streamingNet + (payment.net_amount || 0)
-      }), { streamingEarned: 0, streamingNet: 0 });
+      // Separate revenue (positive) from withdrawals (negative)
+      const streamingTotals = streamingPaymentsData.reduce((acc, payment) => {
+        const grossAmount = payment.gross_amount || 0;
+        const netAmount = payment.net_amount || 0;
+
+        return {
+          streamingEarned: acc.streamingEarned + (grossAmount > 0 ? grossAmount : 0),
+          streamingNet: acc.streamingNet + (netAmount > 0 ? netAmount : 0),
+          streamingPaid: acc.streamingPaid + (netAmount < 0 ? Math.abs(netAmount) : 0)
+        };
+      }, { streamingEarned: 0, streamingNet: 0, streamingPaid: 0 });
 
       console.log('Streaming totals calculated:', streamingTotals);
 
@@ -305,11 +312,11 @@ export function FilmmakerDashboard() {
 
       // Calculate final stats
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
-      const totalPaidWithHistory = currentPaid + historicalTotals.historicalPaid;
-      
+      const totalPaidWithHistory = currentPaid + historicalTotals.historicalPaid + streamingTotals.streamingPaid;
+
       // Calculate available balance as the difference between net income and total paid
       const totalNetIncome = historicalTotals.historicalNet + streamingTotals.streamingNet;
-      const availableBalance = Math.max(0, totalNetIncome - totalPaidWithHistory);
+      const availableBalance = Math.max(0, totalNetIncome);
 
       const finalStats = {
         totalTitles: filmmakertitles.length,
@@ -704,31 +711,36 @@ export function FilmmakerDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {streamingPayments.map((payment: any) => (
-                        <tr key={payment.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {payment.content.title_name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              payment.platform === 'Historical Data' 
-                                ? 'bg-purple-100 text-purple-800' 
-                                : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {payment.platform}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(payment.payment_date).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${payment.gross_amount.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${payment.net_amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
+                      {streamingPayments.map((payment: any) => {
+                        const isWithdrawal = payment.net_amount < 0;
+                        return (
+                          <tr key={payment.id} className={isWithdrawal ? 'bg-red-50' : ''}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {payment.content.title_name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                isWithdrawal
+                                  ? 'bg-red-100 text-red-800'
+                                  : payment.platform === 'Historical Data'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {isWithdrawal ? '💸 Payment Out' : payment.platform}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(payment.payment_date).toLocaleDateString()}
+                            </td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${isWithdrawal ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                              {isWithdrawal ? '-' : ''}${Math.abs(payment.gross_amount).toLocaleString()}
+                            </td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${isWithdrawal ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                              {isWithdrawal ? '-' : ''}${Math.abs(payment.net_amount).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
