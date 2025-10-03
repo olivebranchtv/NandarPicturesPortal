@@ -56,23 +56,16 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
 
       const processedRows: ProcessedRow[] = result.data
         .filter((row) => row.grossAmount !== 0)
-        .map((row) => {
-          // If original title name is empty, use channel name as title
-          const hasOriginalTitle = row.titleName && row.titleName.trim() !== '';
-
-          // Use channel name directly as title name if Column D is empty
-          let titleName = row.titleName;
-          if (!hasOriginalTitle) {
-            titleName = row.channel && row.channel.trim() !== '' ? row.channel.trim() : `Untitled - ${row.paymentDate}`;
-            console.log(`Using channel as title name: ${titleName}`);
-
-            // Don't try to match - force this to create a new title with channel name
-            return {
-              ...row,
-              titleName,
-              error: 'No matching title found',
-            };
+        .filter((row) => {
+          // Skip rows where title name (Column D) is empty
+          const hasTitle = row.titleName && row.titleName.trim() !== '';
+          if (!hasTitle) {
+            console.log(`Skipping row - no title name in Column D`);
           }
+          return hasTitle;
+        })
+        .map((row) => {
+          let titleName = row.titleName;
 
           // Only try to match if we have an original title name
           const match = findBestMatch(
