@@ -17,48 +17,32 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
 
   const fetchPayments = async () => {
     try {
-      // First, get all titles owned by this filmmaker
-      const { data: titlesData, error: titlesError } = await supabase!
-        .from('content')
-        .select('id, email')
-        .or(`filmmaker_id.eq.${filmmakerI},owner_id.eq.${filmmakerI}`);
-
-      if (titlesError) throw titlesError;
-
-      const titleIds = titlesData?.map(t => t.id) || [];
-
-      if (titleIds.length === 0) {
-        setPayments([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch streaming payments for those titles
-      const { data: streamingData, error: streamingError } = await supabase!
-        .from('streaming_payments')
+      // Fetch payments directly from the payments table for this filmmaker
+      const { data: paymentsData, error: paymentsError } = await supabase!
+        .from('payments')
         .select(`
           *,
-          content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
+          content(title_name)
         `)
-        .in('title_id', titleIds)
+        .eq('filmmaker_id', filmmakerI)
         .order('payment_date', { ascending: false });
 
-      if (streamingError) throw streamingError;
+      if (paymentsError) throw paymentsError;
 
-      // Transform streaming_payments to match Payment interface
-      const transformedPayments = (streamingData || []).map(sp => ({
-        id: sp.id,
-        content_id: sp.title_id,
-        filmmaker_id: filmmakerI,
-        payment_date: sp.payment_date,
-        gross_amount: sp.gross_amount || 0,
-        distribution_fee: ((sp.gross_amount || 0) * (sp.distribution_percentage || 25) / 100),
-        net_amount: sp.net_amount || 0,
-        title_name: sp.content?.title_name,
-        channel: sp.platform || '',
-        content: sp.content,
-        created_at: sp.created_at,
-        updated_at: sp.updated_at
+      // Transform payments to match Payment interface
+      const transformedPayments = (paymentsData || []).map(p => ({
+        id: p.id,
+        content_id: p.content_id,
+        filmmaker_id: p.filmmaker_id,
+        payment_date: p.payment_date,
+        gross_amount: p.gross_amount || 0,
+        distribution_fee: p.distribution_fee || 0,
+        net_amount: p.net_amount || 0,
+        title_name: p.content?.title_name || p.title_name,
+        channel: p.channel || '',
+        content: p.content,
+        created_at: p.created_at,
+        updated_at: p.updated_at
       }));
 
       setPayments(transformedPayments as any);
