@@ -38,13 +38,15 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
             filmmaker:filmmaker_id(first_name, last_name, email)
           `
           )
-          .order('payment_date', { ascending: false }),
+          .order('payment_date', { ascending: false })
+          .limit(50000),
         supabase!.from('content').select('*'),
       ]);
 
       if (paymentsRes.error) throw paymentsRes.error;
       if (titlesRes.error) throw titlesRes.error;
 
+      console.log(`✅ Fetched ${paymentsRes.data?.length || 0} payments from database`);
       setPayments(paymentsRes.data || []);
       setTitles(titlesRes.data || []);
     } catch (error) {
