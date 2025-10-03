@@ -340,6 +340,16 @@ export function FilmmakerDashboard() {
       return;
     }
 
+    // Check for existing pending or approved requests
+    const hasPendingRequest = paymentRequests.some(
+      req => req.status === 'pending' || req.status === 'approved'
+    );
+
+    if (hasPendingRequest) {
+      alert('You have a pending payment request. Please wait until it is paid before submitting another request.');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('payment_requests')
@@ -633,7 +643,10 @@ export function FilmmakerDashboard() {
                   <Button
                     onClick={() => setShowRequestPayment(true)}
                     className="w-full"
-                    disabled={stats.availableBalance < 100}
+                    disabled={
+                      stats.availableBalance < 100 ||
+                      paymentRequests.some(req => req.status === 'pending' || req.status === 'approved')
+                    }
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Request Payment
@@ -642,6 +655,13 @@ export function FilmmakerDashboard() {
                     <div className="text-center p-4 bg-yellow-50 rounded-lg">
                       <p className="text-sm text-yellow-800">
                         Minimum balance of $100 required for payment requests
+                      </p>
+                    </div>
+                  )}
+                  {stats.availableBalance >= 100 && paymentRequests.some(req => req.status === 'pending' || req.status === 'approved') && (
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        You have a pending payment request. You can submit a new request once it has been paid.
                       </p>
                     </div>
                   )}
