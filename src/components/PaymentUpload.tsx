@@ -54,28 +54,30 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
         return;
       }
 
-      const processedRows: ProcessedRow[] = result.data.map((row) => {
-        const match = findBestMatch(
-          row.titleName,
-          titles,
-          (content) => content.title_name,
-          0.7
-        );
+      const processedRows: ProcessedRow[] = result.data
+        .filter((row) => row.grossAmount !== 0)
+        .map((row) => {
+          const match = findBestMatch(
+            row.titleName,
+            titles,
+            (content) => content.title_name,
+            0.7
+          );
 
-        if (match) {
+          if (match) {
+            return {
+              ...row,
+              matchedContentId: match.item.id,
+              matchedTitle: match.item.title_name,
+              matchScore: match.score,
+            };
+          }
+
           return {
             ...row,
-            matchedContentId: match.item.id,
-            matchedTitle: match.item.title_name,
-            matchScore: match.score,
+            error: 'No matching title found',
           };
-        }
-
-        return {
-          ...row,
-          error: 'No matching title found',
-        };
-      });
+        });
 
       setParsedRows(processedRows);
       setErrors(result.errors);
