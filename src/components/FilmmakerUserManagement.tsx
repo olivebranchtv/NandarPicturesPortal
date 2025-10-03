@@ -172,6 +172,11 @@ export function FilmmakerUserManagement() {
         <p className="text-sm text-gray-600 mt-1">
           Create and manage filmmaker accounts
         </p>
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-800">
+            <span className="font-semibold">Note:</span> New filmmakers are created with the temporary password: <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono">TempPass123!</code>
+          </p>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
