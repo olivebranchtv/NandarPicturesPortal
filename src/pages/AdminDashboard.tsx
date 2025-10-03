@@ -513,31 +513,38 @@ export function AdminDashboard() {
     }
 
     try {
-      // Get the title's distribution settings
+      // Get the title's filmmaker info
       const { data: titleData, error: titleError } = await supabase
         .from('content')
-        .select(`
-          *,
-          title_distribution_settings(*)
-        `)
+        .select('*')
         .eq('id', newPayment.title_id)
         .maybeSingle();
 
       if (titleError) throw titleError;
+      if (!titleData) {
+        alert('Title not found');
+        return;
+      }
 
-      // Use the title's distribution percentage, default to 50% if not set
-      const distributionPercentage = titleData.title_distribution_settings?.[0]?.company_percentage || 25;
+      // Calculate distribution fee and net amount
+      const grossAmount = parseFloat(newPayment.gross_amount);
+      const distributionFee = Math.round(grossAmount * 0.25 * 100) / 100;
+      const netAmount = Math.round((grossAmount - distributionFee) * 100) / 100;
 
       const { error } = await supabase
-        .from('streaming_payments')
+        .from('payments')
         .insert({
-          title_id: newPayment.title_id,
-          platform: newPayment.platform,
-          outlet: newPayment.outlet || null,
+          content_id: newPayment.title_id,
+          filmmaker_id: titleData.filmmaker_id,
           payment_date: newPayment.payment_date,
-          gross_amount: parseFloat(newPayment.gross_amount),
-          distribution_percentage: distributionPercentage,
+          gross_amount: grossAmount,
+          distribution_fee: distributionFee,
+          net_amount: netAmount,
+          channel: newPayment.platform,
+          title_name: titleData.title_name,
+          payment_method: 'manual_entry',
           notes: newPayment.notes || null,
+          created_by: profile?.id,
         });
 
       if (error) throw error;
