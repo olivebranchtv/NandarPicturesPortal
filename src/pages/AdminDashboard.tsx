@@ -891,14 +891,6 @@ export function AdminDashboard() {
                           <div className="flex space-x-2">
                             <Button
                               size="sm"
-                              onClick={() => handleAssignFilmmakerClick(title)}
-                              className="flex items-center space-x-1"
-                            >
-                              <Users className="h-3 w-3" />
-                              <span>Assign</span>
-                            </Button>
-                            <Button
-                              size="sm"
                               variant="secondary"
                               onClick={() => handleEditTitle(title)}
                               className="flex items-center space-x-1"
