@@ -158,18 +158,36 @@ export function AdminDashboard() {
       if (requestsError) throw requestsError;
       setPaymentRequests(requestsData || []);
 
-      // Fetch streaming payments
+      // Fetch payments from the payments table
       const { data: paymentsData, error: paymentsError } = await supabase
-        .from('streaming_payments')
+        .from('payments')
         .select(`
           *,
-          content!streaming_payments_title_id_fkey(title_name, filmmaker_id)
+          content(title_name, filmmaker_id)
         `)
         .order('payment_date', { ascending: false });
 
-      console.log('Streaming payments query result:', { paymentsData, paymentsError });
+      console.log('Payments query result:', { paymentsData, paymentsError });
       if (paymentsError) throw paymentsError;
-      setStreamingPayments(paymentsData || []);
+
+      // Transform payments to match StreamingPayment format
+      const transformedPayments = (paymentsData || []).map(p => ({
+        id: p.id,
+        title_id: p.content_id,
+        platform: p.channel || 'Payment',
+        outlet: null,
+        payment_date: p.payment_date,
+        gross_amount: p.gross_amount || 0,
+        net_amount: p.net_amount || 0,
+        distribution_percentage: p.distribution_fee || 0,
+        notes: p.notes,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        content: p.content,
+        filmmaker_id: p.filmmaker_id
+      }));
+
+      setStreamingPayments(transformedPayments);
 
       // Calculate stats
       const totalRevenue = (paymentsData || []).reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
