@@ -578,6 +578,7 @@ export function AdminDashboard() {
       if (error) throw error;
 
       alert('Payment marked as paid!');
+      setApprovingRequest(null);
       fetchDashboardData();
     } catch (error) {
       console.error('Error marking payment as paid:', error);
@@ -1888,22 +1889,22 @@ export function AdminDashboard() {
                   Select the payment method used:
                 </p>
                 <Button
-                  onClick={() => {
-                    handleMarkAsPaid(approvingRequest.id, 'PayPal');
-                    setApprovingRequest(null);
-                  }}
+                  onClick={() => handleMarkAsPaid(approvingRequest.id, 'PayPal')}
                   className="w-full"
                 >
                   PayPal
                 </Button>
                 <Button
-                  onClick={() => {
-                    handleMarkAsPaid(approvingRequest.id, 'Venmo');
-                    setApprovingRequest(null);
-                  }}
+                  onClick={() => handleMarkAsPaid(approvingRequest.id, 'Venmo')}
                   className="w-full"
                 >
                   Venmo
+                </Button>
+                <Button
+                  onClick={() => handleMarkAsPaid(approvingRequest.id, 'Other')}
+                  className="w-full"
+                >
+                  Other
                 </Button>
                 <Button
                   variant="secondary"
