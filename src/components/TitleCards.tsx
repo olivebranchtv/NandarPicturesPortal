@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Film, DollarSign, Calendar, Hash, TrendingUp } from 'lucide-react';
+import { Film, DollarSign, Calendar, Hash, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { supabase } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -29,6 +29,19 @@ interface TitleCardsProps {
 export function TitleCards({ filmakerId }: TitleCardsProps) {
   const [titles, setTitles] = useState<TitleMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
+
+  const toggleChannelExpansion = (titleId: string) => {
+    setExpandedChannels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(titleId)) {
+        newSet.delete(titleId);
+      } else {
+        newSet.add(titleId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     fetchTitleMetrics();
@@ -269,14 +282,29 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
                     </ResponsiveContainer>
                   </div>
                   <div className="mt-3 space-y-1">
-                    {title.channelBreakdown.slice(0, 3).map((channel, idx) => (
+                    {(expandedChannels.has(title.id) ? title.channelBreakdown : title.channelBreakdown.slice(0, 3)).map((channel, idx) => (
                       <div key={idx} className="flex items-center justify-between text-xs">
                         <span className="text-gray-600">{channel.channel}</span>
                         <span className="font-semibold text-gray-900">{formatCurrency(channel.revenue)}</span>
                       </div>
                     ))}
                     {title.channelBreakdown.length > 3 && (
-                      <div className="text-xs text-gray-500 italic">+{title.channelBreakdown.length - 3} more channel{title.channelBreakdown.length - 3 !== 1 ? 's' : ''}</div>
+                      <button
+                        onClick={() => toggleChannelExpansion(title.id)}
+                        className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700 font-medium mt-2 transition-colors"
+                      >
+                        {expandedChannels.has(title.id) ? (
+                          <>
+                            <ChevronUp className="h-3 w-3" />
+                            <span>Show less</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3 w-3" />
+                            <span>Show all {title.channelBreakdown.length} channels</span>
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>
