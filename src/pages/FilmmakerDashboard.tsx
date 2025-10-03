@@ -270,11 +270,18 @@ export function FilmmakerDashboard() {
       const currentPaid = balanceData?.total_paid || 0;
       
       // Add historical totals from content table
-      const historicalTotals = filmmakertitles.reduce((acc, content) => ({
-        historicalEarned: acc.historicalEarned + (content.previous_gross_amount || 0),
-        historicalPaid: acc.historicalPaid + (content.previous_amount_paid || 0),
-        historicalNet: acc.historicalNet + (content.previous_net_revenue || 0)
-      }), { historicalEarned: 0, historicalPaid: 0, historicalNet: 0 });
+      const historicalTotals = filmmakertitles.reduce((acc, content) => {
+        const grossAmount = content.previous_gross_amount || 0;
+        const netRevenue = content.previous_net_revenue || 0;
+        const expenses = grossAmount > 0 ? (grossAmount - netRevenue) : 0;
+
+        return {
+          historicalEarned: acc.historicalEarned + grossAmount,
+          historicalPaid: acc.historicalPaid + (content.previous_amount_paid || 0),
+          historicalNet: acc.historicalNet + netRevenue,
+          historicalExpenses: acc.historicalExpenses + expenses
+        };
+      }, { historicalEarned: 0, historicalPaid: 0, historicalNet: 0, historicalExpenses: 0 });
 
       console.log('Historical totals calculated:', historicalTotals);
 
@@ -318,7 +325,7 @@ export function FilmmakerDashboard() {
       // For display purposes: show total earned including historical
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
       const totalPaidWithHistory = historicalTotals.historicalPaid + streamingTotals.streamingPaid;
-      const totalExpenses = streamingTotals.streamingExpenses;
+      const totalExpenses = historicalTotals.historicalExpenses + streamingTotals.streamingExpenses;
 
       // IMPORTANT: Available balance should ONLY come from payments table
       // Historical data is already settled (previous_balance_due = 0)
