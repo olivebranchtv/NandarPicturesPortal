@@ -89,7 +89,14 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
       const channel = row[2] ? String(row[2]).trim() : '';
       const titleName = row[3] ? String(row[3]).trim() : '';
 
-      console.log(`Row ${i + 1} - Date (A):`, row[0], '| Net (B):', row[1], '| Channel (C):', row[2], '| Title (D):', row[3]);
+      console.log(`Row ${i + 1} - RAW Data:`, {
+        'A (Date)': row[0],
+        'B (Amount)': row[1],
+        'C (Channel)': row[2],
+        'D (Title)': row[3],
+        'titleName after trim': titleName,
+        'titleName isEmpty': !titleName || titleName === ''
+      });
 
       if (!paymentDate || paymentDate === '') {
         errors.push(`Row ${i + 1}: Missing payment date (Column A is empty)`);
