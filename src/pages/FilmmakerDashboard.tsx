@@ -63,6 +63,28 @@ export function FilmmakerDashboard() {
         paypal_email: profile.paypal_email || '',
         venmo_username: profile.venmo_username || '',
       });
+
+      // Subscribe to payment request changes
+      const subscription = supabase
+        .channel('payment_requests_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payment_requests',
+            filter: `filmmaker_id=eq.${profile.id}`
+          },
+          (payload) => {
+            console.log('Payment request changed:', payload);
+            fetchDashboardData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, [profile]);
 
