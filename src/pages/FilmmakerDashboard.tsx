@@ -8,6 +8,7 @@ import { supabase, Content, PaymentRequest, FilmmakerBalance, StreamingPayment }
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
 import { FilmmakerPaymentHistory } from '../components/FilmmakerPaymentHistory';
+import { TitleCards } from '../components/TitleCards';
 
 interface FilmmakerStats {
   totalTitles: number;
@@ -18,7 +19,7 @@ interface FilmmakerStats {
 
 export function FilmmakerDashboard() {
   const { profile, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'financial'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial'>('overview');
   const [showRequestPayment, setShowRequestPayment] = useState(false);
   const [requestAmount, setRequestAmount] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -461,6 +462,16 @@ export function FilmmakerDashboard() {
               Overview
             </button>
             <button
+              onClick={() => setActiveTab('titles')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'titles'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              My Titles
+            </button>
+            <button
               onClick={() => setActiveTab('financial')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'financial'
@@ -483,6 +494,14 @@ export function FilmmakerDashboard() {
         <div className="space-y-6">
           <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
           {profile?.id && <FilmmakerPaymentHistory filmmakerI={profile.id} />}
+        </div>
+      ) : activeTab === 'titles' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">My Titles</h2>
+            <p className="text-sm text-gray-500">{stats.totalTitles} title{stats.totalTitles !== 1 ? 's' : ''} total</p>
+          </div>
+          {profile?.id && <TitleCards filmakerId={profile.id} />}
         </div>
       ) : (
         <>

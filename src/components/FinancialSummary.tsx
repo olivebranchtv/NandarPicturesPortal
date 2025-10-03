@@ -40,12 +40,12 @@ export function FinancialSummary({ metrics, previousMetrics, showTrends = false 
     );
   };
 
-  const MetricCard = ({ 
-    icon: Icon, 
-    title, 
-    value, 
-    color, 
-    previousValue 
+  const MetricCard = ({
+    icon: Icon,
+    title,
+    value,
+    color,
+    previousValue
   }: {
     icon: any;
     title: string;
@@ -53,24 +53,26 @@ export function FinancialSummary({ metrics, previousMetrics, showTrends = false 
     color: string;
     previousValue?: number;
   }) => (
-    <Card>
+    <Card className="overflow-hidden">
       <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className={`p-2 rounded-lg ${color}`}>
-              <Icon className="h-6 w-6 text-white" />
+        <div className="flex flex-col space-y-3">
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-lg ${color} flex-shrink-0`}>
+              <Icon className="h-5 w-5 text-white" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">{title}</p>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-500 truncate">{title}</p>
             </div>
           </div>
-          {showTrends && previousValue !== undefined && (
-            <div className="flex flex-col items-end space-y-1">
-              {getTrendIcon(parseFloat(value.replace(/[$,]/g, '')), previousValue)}
-              {getTrendPercent(parseFloat(value.replace(/[$,]/g, '')), previousValue)}
-            </div>
-          )}
+          <div className="flex items-center justify-between">
+            <p className="text-xl font-bold text-gray-900 break-words">{value}</p>
+            {showTrends && previousValue !== undefined && (
+              <div className="flex items-center space-x-1 flex-shrink-0">
+                {getTrendIcon(parseFloat(value.replace(/[$,]/g, '')), previousValue)}
+                {getTrendPercent(parseFloat(value.replace(/[$,]/g, '')), previousValue)}
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
