@@ -17,14 +17,30 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
 
   const fetchPayments = async () => {
     try {
-      // Fetch payments directly from the payments table for this filmmaker
+      // First, get all content IDs owned by this filmmaker
+      const { data: titlesData, error: titlesError } = await supabase!
+        .from('content')
+        .select('id')
+        .eq('filmmaker_id', filmmakerI);
+
+      if (titlesError) throw titlesError;
+
+      const titleIds = titlesData?.map(t => t.id) || [];
+
+      if (titleIds.length === 0) {
+        setPayments([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch payments for those content IDs
       const { data: paymentsData, error: paymentsError } = await supabase!
         .from('payments')
         .select(`
           *,
           content(title_name)
         `)
-        .eq('filmmaker_id', filmmakerI)
+        .in('content_id', titleIds)
         .order('payment_date', { ascending: false });
 
       if (paymentsError) throw paymentsError;

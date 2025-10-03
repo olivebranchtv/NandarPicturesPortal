@@ -205,6 +205,10 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
         setTitles(filteredTitles);
 
         // Fetch payments from the payments table
+        // For filmmakers, we need to get payments for their content, not by filmmaker_id
+        // because filmmaker_id in payments may be null
+        const titleIds = filteredTitles.map(t => t.id);
+
         let paymentsQuery = supabase
           .from('payments')
           .select(`
@@ -217,8 +221,9 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
           paymentsQuery = paymentsQuery.gte('payment_date', dateFilter);
         }
 
-        if (userRole === 'filmmaker' && userId) {
-          paymentsQuery = paymentsQuery.eq('filmmaker_id', userId);
+        if (userRole === 'filmmaker' && userId && titleIds.length > 0) {
+          // Filter by content_id to get payments for filmmaker's titles
+          paymentsQuery = paymentsQuery.in('content_id', titleIds);
         }
 
         if (selectedTitle) {
