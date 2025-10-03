@@ -232,17 +232,34 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
                     <TrendingUp className="h-4 w-4 text-blue-600" />
                     <h4 className="text-sm font-semibold text-gray-900">Revenue by Channel</h4>
                   </div>
-                  <div className="h-48">
+                  <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={title.channelBreakdown} layout="horizontal">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis type="number" tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                        <YAxis type="category" dataKey="channel" width={80} tick={{ fontSize: 12 }} />
+                      <BarChart
+                        data={title.channelBreakdown}
+                        layout="horizontal"
+                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis
+                          type="number"
+                          tickFormatter={(value) => {
+                            if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
+                            return `$${value}`;
+                          }}
+                          domain={[0, 'auto']}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="channel"
+                          width={100}
+                          tick={{ fontSize: 11 }}
+                        />
                         <Tooltip
                           formatter={(value: number) => [`$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
-                          labelFormatter={(label) => `Channel: ${label}`}
+                          labelFormatter={(label) => `${label}`}
+                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px' }}
                         />
-                        <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
+                        <Bar dataKey="revenue" radius={[0, 4, 4, 0]} minPointSize={5}>
                           {title.channelBreakdown.map((entry, index) => {
                             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
                             return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
