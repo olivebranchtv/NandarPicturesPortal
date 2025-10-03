@@ -139,7 +139,7 @@ export function AdminDashboard() {
           filmmaker:users!content_filmmaker_id_fkey(first_name, last_name, email),
           title_distribution_settings(*)
         `)
-        .order('created_at', { ascending: false });
+        .order('title_name', { ascending: true });
 
       console.log('Titles query result:', { titlesData, titlesError });
       if (titlesError) throw titlesError;
