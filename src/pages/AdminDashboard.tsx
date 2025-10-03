@@ -53,6 +53,9 @@ export function AdminDashboard() {
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [showPaymentUpload, setShowPaymentUpload] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showAssignFilmmaker, setShowAssignFilmmaker] = useState(false);
+  const [assigningTitle, setAssigningTitle] = useState<Content | null>(null);
+  const [selectedFilmmakerForAssign, setSelectedFilmmakerForAssign] = useState('');
   const [viewingFilmmaker, setViewingFilmmaker] = useState<User | null>(null);
   const [approvingRequest, setApprovingRequest] = useState<PaymentRequest | null>(null);
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
@@ -403,7 +406,7 @@ export function AdminDashboard() {
 
     try {
       console.log('Deleting title:', titleId);
-      
+
       const { error } = await supabase
         .from('content')
         .delete()
@@ -416,6 +419,40 @@ export function AdminDashboard() {
     } catch (error) {
       console.error('Error deleting title:', error);
       alert('Error deleting title. Please try again.');
+    }
+  };
+
+  const handleAssignFilmmakerClick = (title: Content) => {
+    setAssigningTitle(title);
+    setSelectedFilmmakerForAssign(title.filmmaker_id || '');
+    setShowAssignFilmmaker(true);
+  };
+
+  const handleAssignFilmmaker = async () => {
+    if (!assigningTitle || !selectedFilmmakerForAssign) {
+      alert('Please select a filmmaker');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('content')
+        .update({
+          filmmaker_id: selectedFilmmakerForAssign,
+          owner_id: selectedFilmmakerForAssign,
+        })
+        .eq('id', assigningTitle.id);
+
+      if (error) throw error;
+
+      alert('Filmmaker assigned successfully!');
+      setShowAssignFilmmaker(false);
+      setAssigningTitle(null);
+      setSelectedFilmmakerForAssign('');
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error assigning filmmaker:', error);
+      alert('Error assigning filmmaker. Please try again.');
     }
   };
   const handleAddPayment = async () => {
@@ -783,6 +820,14 @@ export function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleAssignFilmmakerClick(title)}
+                              className="flex items-center space-x-1"
+                            >
+                              <Users className="h-3 w-3" />
+                              <span>Assign</span>
+                            </Button>
                             <Button
                               size="sm"
                               variant="secondary"
@@ -1833,6 +1878,70 @@ export function AdminDashboard() {
           onClose={() => setShowBulkImport(false)}
           onComplete={fetchDashboardData}
         />
+      )}
+
+      {/* Assign Filmmaker Modal */}
+      {showAssignFilmmaker && assigningTitle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">
+                Assign Filmmaker to "{assigningTitle.title_name}"
+              </h3>
+
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Title:</span> {assigningTitle.title_name}
+                </p>
+                {assigningTitle.filmmaker && (
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Current Filmmaker:</span>{' '}
+                    {assigningTitle.filmmaker.first_name} {assigningTitle.filmmaker.last_name} ({assigningTitle.filmmaker.email})
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Filmmaker
+                  </label>
+                  <select
+                    value={selectedFilmmakerForAssign}
+                    onChange={(e) => setSelectedFilmmakerForAssign(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose a filmmaker...</option>
+                    {filmmakers.map((filmmaker) => (
+                      <option key={filmmaker.id} value={filmmaker.id}>
+                        {filmmaker.first_name} {filmmaker.last_name} ({filmmaker.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setShowAssignFilmmaker(false);
+                      setAssigningTitle(null);
+                      setSelectedFilmmakerForAssign('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAssignFilmmaker}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Assign Filmmaker
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
