@@ -13,6 +13,7 @@ import { TitleCards } from '../components/TitleCards';
 interface FilmmakerStats {
   totalTitles: number;
   totalEarned: number;
+  totalExpenses: number;
   totalPaid: number;
   availableBalance: number;
 }
@@ -40,6 +41,7 @@ export function FilmmakerDashboard() {
   const [stats, setStats] = useState<FilmmakerStats>({
     totalTitles: 0,
     totalEarned: 0,
+    totalExpenses: 0,
     totalPaid: 0,
     availableBalance: 0,
   });
@@ -281,13 +283,15 @@ export function FilmmakerDashboard() {
       const streamingTotals = streamingPaymentsData.reduce((acc, payment) => {
         const grossAmount = payment.gross_amount || 0;
         const netAmount = payment.net_amount || 0;
+        const expenses = grossAmount > 0 ? (grossAmount - netAmount) : 0;
 
         return {
           streamingEarned: acc.streamingEarned + (grossAmount > 0 ? grossAmount : 0),
           streamingNet: acc.streamingNet + netAmount, // Include both positive and negative
-          streamingPaid: acc.streamingPaid + (netAmount < 0 ? Math.abs(netAmount) : 0)
+          streamingPaid: acc.streamingPaid + (netAmount < 0 ? Math.abs(netAmount) : 0),
+          streamingExpenses: acc.streamingExpenses + expenses
         };
-      }, { streamingEarned: 0, streamingNet: 0, streamingPaid: 0 });
+      }, { streamingEarned: 0, streamingNet: 0, streamingPaid: 0, streamingExpenses: 0 });
 
       console.log('Streaming totals calculated:', streamingTotals);
 
@@ -314,6 +318,7 @@ export function FilmmakerDashboard() {
       // For display purposes: show total earned including historical
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
       const totalPaidWithHistory = historicalTotals.historicalPaid + streamingTotals.streamingPaid;
+      const totalExpenses = streamingTotals.streamingExpenses;
 
       // IMPORTANT: Available balance should ONLY come from payments table
       // Historical data is already settled (previous_balance_due = 0)
@@ -323,6 +328,7 @@ export function FilmmakerDashboard() {
       const finalStats = {
         totalTitles: filmmakertitles.length,
         totalEarned: totalEarnedWithHistory,
+        totalExpenses: totalExpenses,
         totalPaid: totalPaidWithHistory,
         availableBalance: availableBalance,
       };
@@ -597,7 +603,7 @@ export function FilmmakerDashboard() {
       ) : (
         <>
           {/* Overview Tab Content - All existing functionality */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <StatCard
               icon={Film}
               title="My Titles"
@@ -609,6 +615,12 @@ export function FilmmakerDashboard() {
               title="Total Earned"
               value={`$${stats.totalEarned.toLocaleString()}`}
               color="bg-green-600"
+            />
+            <StatCard
+              icon={TrendingUp}
+              title="Expenses"
+              value={`$${stats.totalExpenses.toLocaleString()}`}
+              color="bg-red-600"
             />
             <StatCard
               icon={TrendingUp}
