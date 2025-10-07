@@ -634,6 +634,7 @@ export function AdminDashboard() {
 
   // Create chart data
   const chartData = streamingPayments
+    .filter(payment => payment.content && payment.content.title_name)
     .slice(0, 6)
     .map(payment => ({
       title: payment.content.title_name.substring(0, 15) + (payment.content.title_name.length > 15 ? '...' : ''),
@@ -752,7 +753,7 @@ export function AdminDashboard() {
 
       {/* Render content based on active tab */}
       {activeTab === 'financial' ? (
-        <div className="space-y-6">
+        <div key="financial-tab" className="space-y-6">
           <FinancialDashboard userRole="admin" />
           <PaymentHistoryTable
             streamingPayments={streamingPayments}
@@ -762,12 +763,12 @@ export function AdminDashboard() {
           />
         </div>
       ) : activeTab === 'payments' ? (
-        <div className="space-y-6">
+        <div key="payments-tab" className="space-y-6">
           <UnassignedContentManager onUpdate={fetchDashboardData} />
           <PaymentHistoryAdmin onUpdate={fetchDashboardData} />
         </div>
       ) : activeTab === 'titles' ? (
-        <Card>
+        <Card key="titles-tab">
           <CardHeader>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold flex items-center">
@@ -930,7 +931,7 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       ) : activeTab === 'filmmakers' ? (
-        <div className="space-y-6">
+        <div key="filmmakers-tab" className="space-y-6">
           <FilmmakerUserManagement />
           <Card>
           <CardHeader>
@@ -1015,7 +1016,7 @@ export function AdminDashboard() {
         </Card>
         </div>
       ) : activeTab === 'requests' ? (
-        <Card>
+        <Card key="requests-tab">
           <CardHeader>
             <h3 className="text-lg font-semibold flex items-center">
               <Clock className="h-5 w-5 mr-2" />
@@ -1129,9 +1130,11 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       ) : activeTab === 'admins' ? (
-        <AdminUserManagement />
+        <div key="admins-tab">
+          <AdminUserManagement />
+        </div>
       ) : (
-        <>
+        <div key="overview-tab">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
@@ -1425,7 +1428,7 @@ export function AdminDashboard() {
               )}
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
 
       {/* Add Title Modal */}
