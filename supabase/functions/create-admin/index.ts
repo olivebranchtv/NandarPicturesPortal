@@ -177,18 +177,18 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { error: insertError } = await supabaseAdmin
-      .from('users')
-      .insert({
-        id: newUser.user.id,
-        email,
-        role: 'admin'
-      })
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
-    if (insertError) {
+    const { data: createdProfile } = await supabaseAdmin
+      .from('users')
+      .select('id, email, role')
+      .eq('id', newUser.user.id)
+      .maybeSingle()
+
+    if (!createdProfile) {
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       return new Response(
-        JSON.stringify({ error: `Failed to create admin profile: ${insertError.message}` }),
+        JSON.stringify({ error: 'Failed to create user profile via trigger' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
