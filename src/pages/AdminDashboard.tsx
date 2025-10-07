@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Film, DollarSign, Clock, Plus, Check, X, CreditCard as Edit, BarChart3, Upload } from 'lucide-react';
+import { Users, Film, DollarSign, Clock, Plus, Check, X, Edit, BarChart3, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
