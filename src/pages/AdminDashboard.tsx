@@ -752,7 +752,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Render content based on active tab */}
-      {activeTab === 'financial' ? (
+      {activeTab === 'financial' && (
         <div key="financial-tab" className="space-y-6">
           <FinancialDashboard userRole="admin" />
           <PaymentHistoryTable
@@ -762,12 +762,14 @@ export function AdminDashboard() {
             refreshData={fetchDashboardData}
           />
         </div>
-      ) : activeTab === 'payments' ? (
+      )}
+      {activeTab === 'payments' && (
         <div key="payments-tab" className="space-y-6">
           <UnassignedContentManager onUpdate={fetchDashboardData} />
           <PaymentHistoryAdmin onUpdate={fetchDashboardData} />
         </div>
-      ) : activeTab === 'titles' ? (
+      )}
+      {activeTab === 'titles' && (
         <Card key="titles-tab">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -930,7 +932,8 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
-      ) : activeTab === 'filmmakers' ? (
+      )}
+      {activeTab === 'filmmakers' && (
         <div key="filmmakers-tab" className="space-y-6">
           <FilmmakerUserManagement />
           <Card>
@@ -1015,7 +1018,8 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
         </div>
-      ) : activeTab === 'requests' ? (
+      )}
+      {activeTab === 'requests' && (
         <Card key="requests-tab">
           <CardHeader>
             <h3 className="text-lg font-semibold flex items-center">
@@ -1129,11 +1133,13 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
-      ) : activeTab === 'admins' ? (
+      )}
+      {activeTab === 'admins' && (
         <div key="admins-tab">
           <AdminUserManagement />
         </div>
-      ) : (
+      )}
+      {activeTab === 'overview' && (
         <div key="overview-tab">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
