@@ -105,7 +105,17 @@ Deno.serve(async (req) => {
 
     if (existingUser) {
       return new Response(
-        JSON.stringify({ error: `User with email ${email} already exists` }),
+        JSON.stringify({ error: `User with email ${email} already exists with role: ${existingUser.role}` }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const existingAuthUser = authUsers?.users?.find(u => u.email === email)
+
+    if (existingAuthUser) {
+      return new Response(
+        JSON.stringify({ error: `Auth user with email ${email} already exists but has no profile. Please contact support.` }),
         { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
