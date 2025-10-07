@@ -110,12 +110,53 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
-    const existingAuthUser = authUsers?.users?.find(u => u.email === email)
+    const { data: { users: authUsers }, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+
+    if (listError) {
+      return new Response(
+        JSON.stringify({ error: `Failed to check existing users: ${listError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const existingAuthUser = authUsers?.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
     if (existingAuthUser) {
+      const { data: userProfile } = await supabaseAdmin
+        .from('users')
+        .select('id, email, role')
+        .eq('id', existingAuthUser.id)
+        .maybeSingle()
+
+      if (!userProfile) {
+        const { error: syncError } = await supabaseAdmin
+          .from('users')
+          .insert({
+            id: existingAuthUser.id,
+            email: existingAuthUser.email,
+            role: 'admin'
+          })
+
+        if (syncError) {
+          return new Response(
+            JSON.stringify({ error: `Failed to sync existing auth user: ${syncError.message}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            user_id: existingAuthUser.id,
+            email: existingAuthUser.email,
+            message: 'Existing auth user synced successfully'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       return new Response(
-        JSON.stringify({ error: `Auth user with email ${email} already exists but has no profile. Please contact support.` }),
+        JSON.stringify({ error: `User with email ${email} already exists with role: ${userProfile.role}` }),
         { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
