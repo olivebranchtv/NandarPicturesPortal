@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     console.log('Profile check result:', { profile, profileError: profileError?.message })
 
