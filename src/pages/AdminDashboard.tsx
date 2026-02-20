@@ -15,6 +15,7 @@ import { FilmmakerViewAdmin } from '../components/FilmmakerViewAdmin';
 import { BulkTitleImport } from '../components/BulkTitleImport';
 import { AdminUserManagement } from '../components/AdminUserManagement';
 import { FilmmakerUserManagement } from '../components/FilmmakerUserManagement';
+import { TitleReassignment } from '../components/TitleReassignment';
 
 interface AdminStats {
   totalUsers: number;
@@ -770,7 +771,8 @@ export function AdminDashboard() {
         </div>
       )}
       {activeTab === 'titles' && (
-        <Card key="titles-tab">
+        <div key="titles-tab" className="space-y-6">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold flex items-center">
@@ -932,6 +934,8 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+        <TitleReassignment onUpdate={fetchDashboardData} />
+        </div>
       )}
       {activeTab === 'filmmakers' && (
         <div key="filmmakers-tab" className="space-y-6">
