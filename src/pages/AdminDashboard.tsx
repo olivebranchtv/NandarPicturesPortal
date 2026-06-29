@@ -1104,7 +1104,7 @@ export function AdminDashboard() {
                                   variant="danger"
                                   onClick={() => {
                                     if (confirm('Reject this payment request?')) {
-                                      supabase!.from('payment_requests').update({ status: 'rejected' }).eq('id', request.id).then(() => fetchDashboardData());
+                                      supabase?.from('payment_requests').update({ status: 'rejected' }).eq('id', request.id).then(() => fetchDashboardData());
                                     }
                                   }}
                                 >

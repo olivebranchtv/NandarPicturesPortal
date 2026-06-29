@@ -66,7 +66,8 @@ export function FilmmakerDashboard() {
         venmo_username: profile.venmo_username || '',
       });
 
-      // Subscribe to payment request changes
+      if (!supabase) return;
+
       const subscription = supabase
         .channel('payment_requests_changes')
         .on(
@@ -77,10 +78,7 @@ export function FilmmakerDashboard() {
             table: 'payment_requests',
             filter: `filmmaker_id=eq.${profile.id}`
           },
-          (payload) => {
-            console.log('Payment request changed:', payload);
-            fetchDashboardData();
-          }
+          () => fetchDashboardData()
         )
         .subscribe();
 
@@ -91,80 +89,32 @@ export function FilmmakerDashboard() {
   }, [profile]);
 
   const fetchDashboardData = async () => {
-    if (!profile?.id) {
-      console.log('No profile ID available');
+    if (!profile?.id || !supabase) {
       setLoading(false);
       return;
     }
 
     try {
-      console.log('=== FILMMAKER DASHBOARD DATA FETCH ===');
-      console.log('Fetching data for filmmaker ID:', profile.id);
-      console.log('Profile email:', profile.email);
-      
-      // Fetch filmmaker's titles with detailed logging
-      console.log('Step 1: Fetching titles...');
       const { data: titlesData, error: titlesError } = await supabase
         .from('content')
         .select('*')
         .or(`filmmaker_id.eq.${profile.id},owner_id.eq.${profile.id},owner_email.eq.${profile.email}`)
         .order('created_at', { ascending: false });
 
-      console.log('Titles query result:', { 
-        titlesData, 
-        titlesError,
-        count: titlesData?.length || 0 
-      });
+      if (titlesError) throw titlesError;
 
-      if (titlesError) {
-        console.error('Error fetching titles:', titlesError);
-        throw titlesError;
-      }
-      
       const filmmakertitles = titlesData || [];
       setTitles(filmmakertitles);
-      console.log('✅ Titles set:', filmmakertitles.length);
 
-      // If no titles found, check if filmmaker exists in other ways
-      if (filmmakertitles.length === 0) {
-        console.log('⚠️ No titles found for filmmaker. Checking alternative queries...');
-        
-        // Check if there are any titles with this email as owner
-        const { data: emailTitles, error: emailError } = await supabase
-          .from('content')
-          .select('*')
-          .eq('owner_email', profile.email);
-        
-        console.log('Email-based titles:', { emailTitles, emailError });
-        
-        // Check all titles to see what's available
-        const { data: allTitles, error: allError } = await supabase
-          .from('content')
-          .select('*')
-          .limit(5);
-        
-        console.log('Sample of all titles:', { allTitles, allError });
-      }
-
-      // Fetch filmmaker's balance
-      console.log('Step 2: Fetching balance...');
       const { data: balanceData, error: balanceError } = await supabase
         .from('filmmaker_balances')
         .select('*')
         .eq('filmmaker_id', profile.id);
 
-      console.log('Balance query result:', { balanceData, balanceError });
-      if (balanceError) {
-        console.error('Error fetching balance:', balanceError);
-      }
-      
-      // Handle the case where no balance record exists yet
+      if (balanceError) console.error('Error fetching balance:', balanceError);
+
       const balance = balanceData && balanceData.length > 0 ? balanceData[0] : null;
       setBalance(balance);
-
-      // Fetch payments from the payments table for this filmmaker
-      // Get payments by content_id matching the filmmaker's titles
-      console.log('Step 3: Fetching payments from payments table...');
 
       const titleIds = filmmakertitles.map(t => t.id);
       let paymentsTableData: any[] = [];
@@ -201,12 +151,6 @@ export function FilmmakerDashboard() {
         }
       }
 
-      console.log('Payments table query result:', {
-        paymentsTableData,
-        paymentsTableError,
-        count: paymentsTableData?.length || 0
-      });
-
       let streamingPaymentsData: any[] = [];
 
       if (paymentsTableError) {
@@ -232,8 +176,6 @@ export function FilmmakerDashboard() {
         }));
       }
 
-      // Process historical data from titles
-      console.log('Step 4: Processing historical data...');
       const historicalPayments = filmmakertitles
         .filter(content => 
           (content.previous_gross_amount && content.previous_gross_amount > 0) || 
@@ -257,15 +199,9 @@ export function FilmmakerDashboard() {
           }
         }));
 
-      console.log('Historical payments processed:', historicalPayments.length);
-
-      // Combine streaming payments with historical data
       const allPayments = [...streamingPaymentsData, ...historicalPayments];
       setStreamingPayments(allPayments);
-      console.log('✅ Total payments (streaming + historical):', allPayments.length);
 
-      // Calculate totals including historical data
-      console.log('Step 5: Calculating totals...');
       const currentEarned = balanceData?.total_earned || 0;
       const currentPaid = balanceData?.total_paid || 0;
       
@@ -283,10 +219,6 @@ export function FilmmakerDashboard() {
         };
       }, { historicalEarned: 0, historicalPaid: 0, historicalNet: 0, historicalExpenses: 0 });
 
-      console.log('Historical totals calculated:', historicalTotals);
-
-      // Calculate streaming payment totals
-      // Separate revenue (positive) from withdrawals (negative)
       const streamingTotals = streamingPaymentsData.reduce((acc, payment) => {
         const grossAmount = payment.gross_amount || 0;
         const netAmount = payment.net_amount || 0;
@@ -300,25 +232,13 @@ export function FilmmakerDashboard() {
         };
       }, { streamingEarned: 0, streamingNet: 0, streamingPaid: 0, streamingExpenses: 0 });
 
-      console.log('Streaming totals calculated:', streamingTotals);
-
-      // Fetch payment requests
-      console.log('Step 6: Fetching payment requests...');
       const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
         .select('*')
         .eq('filmmaker_id', profile.id)
         .order('requested_at', { ascending: false });
 
-      console.log('Payment requests query result:', { 
-        requestsData, 
-        requestsError,
-        count: requestsData?.length || 0 
-      });
-      
-      if (requestsError) {
-        console.error('Error fetching payment requests:', requestsError);
-      }
+      if (requestsError) console.error('Error fetching payment requests:', requestsError);
       setPaymentRequests(requestsData || []);
 
       // Calculate final stats
@@ -340,13 +260,10 @@ export function FilmmakerDashboard() {
         availableBalance: availableBalance,
       };
       
-      console.log('✅ Final filmmaker stats calculated:', finalStats);
       setStats(finalStats);
 
-      console.log('=== FILMMAKER DASHBOARD DATA FETCH COMPLETE ===');
-
     } catch (error) {
-      console.error('❌ Error fetching filmmaker dashboard data:', error);
+      console.error('Error fetching filmmaker dashboard data:', error);
     } finally {
       setLoading(false);
     }

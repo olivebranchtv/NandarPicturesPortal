@@ -187,6 +187,11 @@ export function useFinancialData({ userId, userRole, selectedTitle, dateRange }:
 
       setLoading(true);
       try {
+        if (!supabase) {
+          setLoading(false);
+          return;
+        }
+
         // Fetch titles based on role
         let titlesQuery = supabase.from('content').select('*');
         
