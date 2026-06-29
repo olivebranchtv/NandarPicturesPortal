@@ -66,8 +66,6 @@ export function BalancesDueCard() {
 
   const totalDue = rows.reduce((s, r) => s + r.balanceDue, 0);
 
-  if (!loading && rows.length === 0) return null;
-
   return (
     <Card className="border-orange-200 bg-orange-50/30">
       <CardHeader className="pb-3">
@@ -102,6 +100,16 @@ export function BalancesDueCard() {
         <CardContent className="pt-0">
           {loading ? (
             <div className="py-6 text-center text-sm text-gray-400">Loading…</div>
+          ) : rows.length === 0 ? (
+            <div className="flex items-center gap-3 py-5 px-4 bg-green-50 rounded-lg border border-green-100">
+              <div className="flex-shrink-0 p-2 bg-green-100 rounded-full">
+                <DollarSign className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-green-800">All filmmakers are fully paid up</p>
+                <p className="text-xs text-green-600 mt-0.5">No outstanding balances at this time</p>
+              </div>
+            </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-orange-100">
               <table className="w-full text-sm">
