@@ -577,8 +577,6 @@ export function AdminDashboard() {
         .update({
           status: 'approved',
           amount_approved: approvedAmount,
-          approved_by: profile?.id,
-          approved_at: new Date().toISOString(),
         })
         .eq('id', requestId);
 
@@ -1269,7 +1267,7 @@ export function AdminDashboard() {
                                       onConfirm: () => {
                                         setConfirmModal(null);
                                         supabase?.from('payment_requests')
-                                          .update({ status: 'rejected', approved_by: profile?.id, approved_at: new Date().toISOString() })
+                                          .update({ status: 'rejected' })
                                           .eq('id', request.id)
                                           .then(() => { toast.success('Request rejected.'); fetchDashboardData(); });
                                       },
