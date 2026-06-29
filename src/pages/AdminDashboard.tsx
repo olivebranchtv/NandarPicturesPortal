@@ -66,6 +66,9 @@ export function AdminDashboard() {
   const [selectedFilmmakerForAssign, setSelectedFilmmakerForAssign] = useState('');
   const [viewingFilmmaker, setViewingFilmmaker] = useState<User | null>(null);
   const [approvingRequest, setApprovingRequest] = useState<PaymentRequest | null>(null);
+  const [approvingFilmmaker, setApprovingFilmmaker] = useState<User | null>(null);
+  const [payoutMethod, setPayoutMethod] = useState('');
+  const [transactionRef, setTransactionRef] = useState('');
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [editTitleSplits, setEditTitleSplits] = useState<SplitRow[]>([{ platform: null, company: 25, filmmaker: 75 }]);
   const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
@@ -588,24 +591,47 @@ export function AdminDashboard() {
     }
   };
 
-  const handleMarkAsPaid = async (requestId: string, paymentMethod: string) => {
-    setMarkingPaidId(requestId);
+  const openMarkAsPaid = async (request: PaymentRequest) => {
+    setApprovingRequest(request);
+    setTransactionRef('');
+    // Fetch filmmaker's full profile for payout details
+    if (request.filmmaker_id && supabase) {
+      const { data } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', request.filmmaker_id)
+        .maybeSingle();
+      setApprovingFilmmaker(data ?? null);
+      setPayoutMethod((data as any)?.payout_method || 'paypal');
+    } else {
+      setApprovingFilmmaker(null);
+      setPayoutMethod('paypal');
+    }
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!approvingRequest) return;
+    setMarkingPaidId(approvingRequest.id);
     try {
       const { error } = await supabase
         .from('payment_requests')
         .update({
           status: 'paid',
-          payment_method_used: paymentMethod,
+          payment_method_used: payoutMethod,
+          transaction_reference: transactionRef || null,
           date_paid: new Date().toISOString(),
           approved_by: profile?.id,
           approved_at: new Date().toISOString(),
         })
-        .eq('id', requestId);
+        .eq('id', approvingRequest.id);
 
       if (error) throw error;
 
       toast.success('Payment marked as paid!');
       setApprovingRequest(null);
+      setApprovingFilmmaker(null);
+      setPayoutMethod('');
+      setTransactionRef('');
       fetchDashboardData();
     } catch (error: any) {
       toast.error(error.message || 'Error marking payment. Please try again.');
@@ -1207,7 +1233,7 @@ export function AdminDashboard() {
                             {request.status === 'approved' && (
                               <Button
                                 size="sm"
-                                onClick={() => setApprovingRequest(request)}
+                                onClick={() => openMarkAsPaid(request)}
                               >
                                 Mark as Paid
                               </Button>
@@ -2017,51 +2043,127 @@ export function AdminDashboard() {
       {/* Mark Payment as Paid Modal */}
       {approvingRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Mark Payment as Paid</h3>
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm">
-                  <div className="mb-2">
-                    <span className="font-medium">Filmmaker:</span>{' '}
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">Mark Payment as Paid</h3>
+              <p className="text-sm text-gray-500 mt-0.5">Record how and when this was sent</p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Summary */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <p className="font-semibold text-gray-900">
                     {approvingRequest.filmmaker?.first_name} {approvingRequest.filmmaker?.last_name}
-                  </div>
-                  <div>
-                    <span className="font-medium">Amount:</span>{' '}
-                    ${approvingRequest.amount_requested.toLocaleString()}
-                  </div>
+                  </p>
+                  <p className="text-xs text-gray-400">{approvingRequest.filmmaker?.email}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">
+                    ${(approvingRequest.amount_approved ?? approvingRequest.amount_requested).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-400">approved amount</p>
                 </div>
               </div>
-              <div className="space-y-3">
-                <p className="text-sm text-gray-600">
-                  Select the payment method used:
-                </p>
-                <Button
-                  onClick={() => handleMarkAsPaid(approvingRequest.id, 'PayPal')}
-                  className="w-full"
-                >
-                  PayPal
-                </Button>
-                <Button
-                  onClick={() => handleMarkAsPaid(approvingRequest.id, 'Venmo')}
-                  className="w-full"
-                >
-                  Venmo
-                </Button>
-                <Button
-                  onClick={() => handleMarkAsPaid(approvingRequest.id, 'Other')}
-                  className="w-full"
-                >
-                  Other
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setApprovingRequest(null)}
-                  className="w-full"
-                >
-                  Cancel
-                </Button>
+
+              {/* Filmmaker's payout accounts */}
+              {approvingFilmmaker && (approvingFilmmaker.paypal_email || approvingFilmmaker.venmo_username || (approvingFilmmaker as any).zelle_identifier) && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Filmmaker's accounts</p>
+                  <div className="space-y-1.5">
+                    {approvingFilmmaker.paypal_email && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${(approvingFilmmaker as any).payout_method === 'paypal' ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                        <span className="text-xs font-bold text-blue-600 w-16">PayPal{(approvingFilmmaker as any).payout_method === 'paypal' ? ' ★' : ''}</span>
+                        <span className="text-sm text-gray-800">{approvingFilmmaker.paypal_email}</span>
+                      </div>
+                    )}
+                    {approvingFilmmaker.venmo_username && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${(approvingFilmmaker as any).payout_method === 'venmo' ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-white'}`}>
+                        <span className="text-xs font-bold text-indigo-600 w-16">Venmo{(approvingFilmmaker as any).payout_method === 'venmo' ? ' ★' : ''}</span>
+                        <span className="text-sm text-gray-800">@{approvingFilmmaker.venmo_username}</span>
+                      </div>
+                    )}
+                    {(approvingFilmmaker as any).zelle_identifier && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${(approvingFilmmaker as any).payout_method === 'zelle' ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-white'}`}>
+                        <span className="text-xs font-bold text-purple-600 w-16">Zelle{(approvingFilmmaker as any).payout_method === 'zelle' ? ' ★' : ''}</span>
+                        <span className="text-sm text-gray-800">{(approvingFilmmaker as any).zelle_identifier}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-400 pl-1">★ = filmmaker's preferred method</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Method selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment method used</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'paypal',     label: 'PayPal'     },
+                    { value: 'venmo',      label: 'Venmo'      },
+                    { value: 'zelle',      label: 'Zelle'      },
+                    { value: 'stripe_ach', label: 'ACH / Bank' },
+                    { value: 'check',      label: 'Check'      },
+                    { value: 'other',      label: 'Other'      },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setPayoutMethod(opt.value)}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        payoutMethod === opt.value
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Transaction reference */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Transaction reference <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={transactionRef}
+                  onChange={e => setTransactionRef(e.target.value)}
+                  placeholder={
+                    payoutMethod === 'paypal' ? 'PayPal transaction ID' :
+                    payoutMethod === 'venmo'  ? 'Venmo transaction ID' :
+                    payoutMethod === 'zelle'  ? 'Zelle confirmation number' :
+                    payoutMethod === 'check'  ? 'Check number' :
+                    'Reference number or note'
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t border-gray-100">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setApprovingRequest(null);
+                  setApprovingFilmmaker(null);
+                  setPayoutMethod('');
+                  setTransactionRef('');
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMarkAsPaid}
+                loading={markingPaidId === approvingRequest.id}
+                disabled={!payoutMethod}
+                className="flex-1"
+              >
+                Confirm Payment Sent
+              </Button>
             </div>
           </div>
         </div>

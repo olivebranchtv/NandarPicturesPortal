@@ -24,6 +24,8 @@ export interface User {
   zip_code?: string;
   paypal_email?: string;
   venmo_username?: string;
+  payout_method?: 'paypal' | 'venmo' | 'zelle' | 'stripe_ach' | 'check' | 'other';
+  zelle_identifier?: string;
   created_at: string;
   updated_at: string;
 }
@@ -74,6 +76,7 @@ export interface PaymentRequest {
   date_paid?: string;
   approved_by?: string;
   approved_at?: string;
+  transaction_reference?: string;
   requested_at: string;
   updated_at: string;
   filmmaker?: {

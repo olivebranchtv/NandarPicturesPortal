@@ -23,6 +23,8 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
     zip_code: '',
     paypal_email: '',
     venmo_username: '',
+    payout_method: 'paypal' as 'paypal' | 'venmo' | 'zelle' | 'stripe_ach' | 'check' | 'other',
+    zelle_identifier: '',
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -48,6 +50,8 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
         zip_code: profile.zip_code || '',
         paypal_email: profile.paypal_email || '',
         venmo_username: profile.venmo_username || '',
+        payout_method: (profile.payout_method as any) || 'paypal',
+        zelle_identifier: (profile as any).zelle_identifier || '',
       });
     }
   }, [profile, isOpen]);
@@ -84,6 +88,8 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
           zip_code: formData.zip_code,
           paypal_email: formData.paypal_email,
           venmo_username: formData.venmo_username,
+          payout_method: formData.payout_method,
+          zelle_identifier: formData.zelle_identifier || null,
         })
         .eq('id', profile.id);
 
@@ -264,25 +270,67 @@ export function ProfileSettings({ isOpen, onClose }: ProfileSettingsProps) {
               <CardHeader>
                 <h3 className="text-lg font-medium flex items-center">
                   <CreditCard className="h-5 w-5 mr-2" />
-                  Payment Methods
+                  Payout Preferences
                 </h3>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Preferred method selector */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Preferred Payout Method
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: 'paypal',     label: 'PayPal',      color: 'blue'   },
+                      { value: 'venmo',      label: 'Venmo',       color: 'indigo' },
+                      { value: 'zelle',      label: 'Zelle',       color: 'purple' },
+                      { value: 'stripe_ach', label: 'ACH / Bank',  color: 'green'  },
+                      { value: 'check',      label: 'Check',       color: 'gray'   },
+                      { value: 'other',      label: 'Other',       color: 'gray'   },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleInputChange('payout_method', opt.value)}
+                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          formData.payout_method === opt.value
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
+                        }`}
+                      >
+                        {opt.label}{formData.payout_method === opt.value ? ' ✓' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* PayPal */}
                 <Input
                   label="PayPal Email"
                   type="email"
                   value={formData.paypal_email}
                   onChange={(e) => handleInputChange('paypal_email', e.target.value)}
-                  placeholder="Enter your PayPal email"
+                  placeholder="your@paypal.com"
                 />
+
+                {/* Venmo */}
                 <Input
                   label="Venmo Username"
                   value={formData.venmo_username}
                   onChange={(e) => handleInputChange('venmo_username', e.target.value)}
-                  placeholder="Enter your Venmo username"
+                  placeholder="@username"
                 />
+
+                {/* Zelle */}
+                <Input
+                  label="Zelle Phone or Email"
+                  value={formData.zelle_identifier}
+                  onChange={(e) => handleInputChange('zelle_identifier', e.target.value)}
+                  placeholder="Phone number or email registered with Zelle"
+                />
+
                 <p className="text-xs text-gray-500">
-                  Payment methods are used for revenue distributions and payments
+                  Fill in all accounts you have — your preferred method will be highlighted for Nandar when processing your payment.
                 </p>
               </CardContent>
             </Card>

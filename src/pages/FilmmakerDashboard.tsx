@@ -1003,24 +1003,33 @@ export function FilmmakerDashboard() {
                       Edit
                     </button>
                   </div>
-                  {profile?.paypal_email || profile?.venmo_username ? (
+                  {profile?.paypal_email || profile?.venmo_username || (profile as any)?.zelle_identifier ? (
                     <div className="space-y-1.5">
                       {profile?.paypal_email && (
-                        <div className="flex items-center space-x-2">
+                        <div className={`flex items-center space-x-2 rounded px-2 py-1 ${(profile as any)?.payout_method === 'paypal' ? 'bg-blue-50 ring-1 ring-blue-300' : ''}`}>
                           <span className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                            PayPal
+                            PayPal{(profile as any)?.payout_method === 'paypal' ? ' ★' : ''}
                           </span>
                           <span className="text-sm text-gray-800">{profile.paypal_email}</span>
                         </div>
                       )}
                       {profile?.venmo_username && (
-                        <div className="flex items-center space-x-2">
+                        <div className={`flex items-center space-x-2 rounded px-2 py-1 ${(profile as any)?.payout_method === 'venmo' ? 'bg-indigo-50 ring-1 ring-indigo-300' : ''}`}>
                           <span className="inline-flex items-center rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                            Venmo
+                            Venmo{(profile as any)?.payout_method === 'venmo' ? ' ★' : ''}
                           </span>
                           <span className="text-sm text-gray-800">@{profile.venmo_username}</span>
                         </div>
                       )}
+                      {(profile as any)?.zelle_identifier && (
+                        <div className={`flex items-center space-x-2 rounded px-2 py-1 ${(profile as any)?.payout_method === 'zelle' ? 'bg-purple-50 ring-1 ring-purple-300' : ''}`}>
+                          <span className="inline-flex items-center rounded bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                            Zelle{(profile as any)?.payout_method === 'zelle' ? ' ★' : ''}
+                          </span>
+                          <span className="text-sm text-gray-800">{(profile as any).zelle_identifier}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-400 pt-0.5">★ = your preferred method</p>
                     </div>
                   ) : (
                     <div className="flex items-center space-x-2">
