@@ -7,9 +7,10 @@ interface FilmmakerBalance {
   id: string;
   name: string;
   email: string;
-  totalEarned: number;
-  totalPaid: number;
-  balanceDue: number;
+  streamingNet: number;
+  historicalBalanceDue: number;
+  paidViaRequests: number;
+  availableBalance: number;
 }
 
 export function BalancesDueCard() {
@@ -21,39 +22,74 @@ export function BalancesDueCard() {
     if (!supabase) return;
     (async () => {
       try {
-        const [usersRes, paymentsRes, requestsRes] = await Promise.all([
-          supabase.from('users').select('id, first_name, last_name, email').eq('role', 'filmmaker'),
-          supabase.from('payments').select('filmmaker_id, net_amount'),
-          supabase.from('payment_requests').select('filmmaker_id, amount_approved, status').eq('status', 'paid'),
-        ]);
-
+        // 1. All filmmakers
+        const usersRes = await supabase
+          .from('users')
+          .select('id, first_name, last_name, email')
+          .eq('role', 'filmmaker');
         if (usersRes.error) throw usersRes.error;
+        const filmmakers = usersRes.data ?? [];
 
-        const earnedMap = new Map<string, number>();
-        for (const p of paymentsRes.data ?? []) {
-          earnedMap.set(p.filmmaker_id, (earnedMap.get(p.filmmaker_id) ?? 0) + (p.net_amount ?? 0));
+        // 2. All content with historical balance fields, keyed by filmmaker_id / owner_id
+        const contentRes = await supabase
+          .from('content')
+          .select('id, filmmaker_id, owner_id, previous_balance_due');
+        const contents = contentRes.data ?? [];
+
+        // Build map: filmmaker id → sum of previous_balance_due
+        const historicalMap = new Map<string, number>();
+        // Build map: content_id → filmmaker id (for payments join)
+        const contentFilmmakerMap = new Map<string, string>();
+        for (const c of contents) {
+          const fid = c.filmmaker_id || c.owner_id;
+          if (!fid) continue;
+          contentFilmmakerMap.set(c.id, fid);
+          if (c.previous_balance_due && c.previous_balance_due > 0) {
+            historicalMap.set(fid, (historicalMap.get(fid) ?? 0) + c.previous_balance_due);
+          }
         }
 
+        // 3. Streaming net from payments table (via content_id → filmmaker)
+        const paymentsRes = await supabase
+          .from('payments')
+          .select('content_id, net_amount');
+        const streamingNetMap = new Map<string, number>();
+        for (const p of paymentsRes.data ?? []) {
+          const fid = contentFilmmakerMap.get(p.content_id);
+          if (!fid) continue;
+          streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
+        }
+
+        // 4. Portal payouts already made (payment_requests status=paid)
+        const requestsRes = await supabase
+          .from('payment_requests')
+          .select('filmmaker_id, amount_approved, amount_requested')
+          .eq('status', 'paid');
         const paidMap = new Map<string, number>();
         for (const r of requestsRes.data ?? []) {
-          paidMap.set(r.filmmaker_id, (paidMap.get(r.filmmaker_id) ?? 0) + (r.amount_approved ?? 0));
+          const amt = r.amount_approved ?? r.amount_requested ?? 0;
+          paidMap.set(r.filmmaker_id, (paidMap.get(r.filmmaker_id) ?? 0) + amt);
         }
 
-        const result: FilmmakerBalance[] = (usersRes.data ?? [])
+        // 5. Compute available balance per filmmaker (same formula as FilmmakerDashboard)
+        const result: FilmmakerBalance[] = filmmakers
           .map(u => {
-            const totalEarned = earnedMap.get(u.id) ?? 0;
-            const totalPaid = paidMap.get(u.id) ?? 0;
+            const streamingNet = streamingNetMap.get(u.id) ?? 0;
+            const historicalBalanceDue = historicalMap.get(u.id) ?? 0;
+            const paidViaRequests = paidMap.get(u.id) ?? 0;
+            const availableBalance = Math.max(0, streamingNet + historicalBalanceDue - paidViaRequests);
             return {
               id: u.id,
               name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
               email: u.email,
-              totalEarned,
-              totalPaid,
-              balanceDue: Math.max(0, totalEarned - totalPaid),
+              streamingNet,
+              historicalBalanceDue,
+              paidViaRequests,
+              availableBalance,
             };
           })
-          .filter(r => r.balanceDue > 0)
-          .sort((a, b) => b.balanceDue - a.balanceDue);
+          .filter(r => r.availableBalance > 0)
+          .sort((a, b) => b.availableBalance - a.availableBalance);
 
         setRows(result);
       } catch (e) {
@@ -64,7 +100,7 @@ export function BalancesDueCard() {
     })();
   }, []);
 
-  const totalDue = rows.reduce((s, r) => s + r.balanceDue, 0);
+  const totalDue = rows.reduce((s, r) => s + r.availableBalance, 0);
 
   return (
     <Card className="border-orange-200 bg-orange-50/30">
@@ -116,57 +152,47 @@ export function BalancesDueCard() {
                 <thead>
                   <tr className="bg-orange-50 border-b border-orange-100">
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Filmmaker</th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Earned</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Streaming Net</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Historical Owed</th>
                     <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Already Paid</th>
                     <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      <span className="text-orange-600">Balance Due</span>
+                      <span className="text-orange-600">Available Balance</span>
                     </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">% Paid Out</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-orange-50 bg-white">
-                  {rows.map((r, i) => {
-                    const pct = r.totalEarned > 0 ? (r.totalPaid / r.totalEarned) * 100 : 0;
-                    return (
-                      <tr key={r.id} className={i === 0 ? 'bg-orange-50/60' : 'hover:bg-gray-50'}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {i === 0 && (
-                              <span className="text-xs font-bold text-orange-500 uppercase tracking-wide">Highest</span>
-                            )}
-                            <div>
-                              <p className="font-medium text-gray-900">{r.name}</p>
-                              <p className="text-xs text-gray-400">{r.email}</p>
-                            </div>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} className={i === 0 ? 'bg-orange-50/60' : 'hover:bg-gray-50'}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {i === 0 && (
+                            <span className="text-xs font-bold text-orange-500 uppercase tracking-wide">Highest</span>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">{r.name}</p>
+                            <p className="text-xs text-gray-400">{r.email}</p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-700 tabular-nums">
-                          ${r.totalEarned.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-600 tabular-nums">
-                          ${r.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          <span className="font-bold text-orange-600 text-base">
-                            ${r.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-green-500"
-                                style={{ width: `${Math.min(100, pct)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-500 tabular-nums w-9 text-right">
-                              {pct.toFixed(0)}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-700 tabular-nums">
+                        ${r.streamingNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 tabular-nums">
+                        {r.historicalBalanceDue > 0
+                          ? `$${r.historicalBalanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                          : <span className="text-gray-300">—</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600 tabular-nums">
+                        ${r.paidViaRequests.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <span className="font-bold text-orange-600 text-base">
+                          ${r.availableBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-orange-100 border-t-2 border-orange-200 font-semibold">
@@ -174,17 +200,19 @@ export function BalancesDueCard() {
                       Total ({rows.length} filmmaker{rows.length !== 1 ? 's' : ''})
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700 tabular-nums">
-                      ${rows.reduce((s, r) => s + r.totalEarned, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      ${rows.reduce((s, r) => s + r.streamingNet, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700 tabular-nums">
-                      ${rows.reduce((s, r) => s + r.totalPaid, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      ${rows.reduce((s, r) => s + r.historicalBalanceDue, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-700 tabular-nums">
+                      ${rows.reduce((s, r) => s + r.paidViaRequests, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       <span className="text-orange-700 font-bold text-base">
                         ${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </td>
-                    <td />
                   </tr>
                 </tfoot>
               </table>
