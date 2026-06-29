@@ -98,6 +98,7 @@ export interface StreamingPayment {
 export interface TitleDistributionSettings {
   id: string;
   title_id: string;
+  platform?: string | null;
   company_percentage: number;
   filmmaker_percentage: number;
   created_at: string;

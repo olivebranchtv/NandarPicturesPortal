@@ -18,6 +18,7 @@ import { BulkTitleImport } from '../components/BulkTitleImport';
 import { AdminUserManagement } from '../components/AdminUserManagement';
 import { FilmmakerUserManagement } from '../components/FilmmakerUserManagement';
 import { TitleReassignment } from '../components/TitleReassignment';
+import { PlatformSplitEditor, SplitRow } from '../components/PlatformSplitEditor';
 
 interface AdminStats {
   totalUsers: number;
@@ -62,6 +63,7 @@ export function AdminDashboard() {
   const [viewingFilmmaker, setViewingFilmmaker] = useState<User | null>(null);
   const [approvingRequest, setApprovingRequest] = useState<PaymentRequest | null>(null);
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
+  const [editTitleSplits, setEditTitleSplits] = useState<SplitRow[]>([{ platform: null, company: 25, filmmaker: 75 }]);
   const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
     email: '',
     first_name: '',
@@ -367,12 +369,6 @@ export function AdminDashboard() {
 
   const handleEditTitle = (title: Content) => {
     setEditingTitle(title);
-    
-    // Get the distribution percentage from the title's distribution settings
-    const distributionPercentage = title.title_distribution_settings && title.title_distribution_settings.length > 0
-      ? title.title_distribution_settings[0].company_percentage.toString()
-      : '';
-    
     setEditTitle({
       title_name: title.title_name,
       content_type: title.content_type,
@@ -382,7 +378,7 @@ export function AdminDashboard() {
       duration_minutes: title.duration_minutes?.toString() || '',
       rating: title.rating || '',
       filmmaker_id: title.filmmaker_id || '',
-      distribution_percentage: title.title_distribution_settings?.[0]?.company_percentage?.toString() || '25',
+      distribution_percentage: '25', // kept for add-title path only
       previous_gross_amount: title.previous_gross_amount?.toString() || '',
       previous_expenses: title.previous_expenses?.toString() || '',
       previous_distribution_fee: title.previous_distribution_fee?.toString() || '',
@@ -390,6 +386,16 @@ export function AdminDashboard() {
       previous_amount_paid: title.previous_amount_paid?.toString() || '',
       previous_balance_due: title.previous_balance_due?.toString() || '',
     });
+
+    // Build split rows from existing distribution settings
+    const settings = title.title_distribution_settings ?? [];
+    const globalRow = settings.find(s => !s.platform);
+    const platformRows = settings.filter(s => !!s.platform);
+    setEditTitleSplits([
+      { platform: null, company: globalRow?.company_percentage ?? 25, filmmaker: globalRow?.filmmaker_percentage ?? 75 },
+      ...platformRows.map(s => ({ platform: s.platform!, company: s.company_percentage, filmmaker: s.filmmaker_percentage })),
+    ]);
+
     setShowEditTitle(true);
   };
 
@@ -423,16 +429,22 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 25;
-      const filmmakerPercentage = 100 - companyPercentage;
-
+      // Replace all distribution settings with the current editor state
       await supabase
         .from('title_distribution_settings')
-        .upsert([{
-          title_id: editingTitle.id,
-          company_percentage: companyPercentage,
-          filmmaker_percentage: filmmakerPercentage,
-        }], { onConflict: 'title_id', ignoreDuplicates: false });
+        .delete()
+        .eq('title_id', editingTitle.id);
+
+      if (editTitleSplits.length > 0) {
+        await supabase
+          .from('title_distribution_settings')
+          .insert(editTitleSplits.map(row => ({
+            title_id: editingTitle.id,
+            platform: row.platform ?? null,
+            company_percentage: row.company,
+            filmmaker_percentage: row.filmmaker,
+          })));
+      }
 
       toast.success('Title updated successfully!');
       setShowEditTitle(false);
@@ -882,16 +894,28 @@ export function AdminDashboard() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 text-sm text-gray-500">
                           {title.title_distribution_settings && title.title_distribution_settings.length > 0 ? (
-                            <div>
-                              <div>Company: {title.title_distribution_settings[0].company_percentage}%</div>
-                              <div className="text-xs text-gray-400">
-                                Filmmaker: {title.title_distribution_settings[0].filmmaker_percentage}%
-                              </div>
+                            <div className="space-y-1">
+                              {(() => {
+                                const global = title.title_distribution_settings.find(s => !s.platform);
+                                const platforms = title.title_distribution_settings.filter(s => !!s.platform);
+                                return (
+                                  <>
+                                    <div className="text-xs font-medium text-gray-700">
+                                      Default: {global?.company_percentage ?? 25}% / {global?.filmmaker_percentage ?? 75}%
+                                    </div>
+                                    {platforms.map(s => (
+                                      <div key={s.platform} className="text-xs text-blue-600">
+                                        {s.platform}: {s.company_percentage}% / {s.filmmaker_percentage}%
+                                      </div>
+                                    ))}
+                                  </>
+                                );
+                              })()}
                             </div>
                           ) : (
-                            <span className="text-yellow-600">25% / 75%</span>
+                            <span className="text-yellow-600 text-xs">25% / 75% (default)</span>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1440,16 +1464,28 @@ export function AdminDashboard() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 text-sm text-gray-500">
                             {title.title_distribution_settings && title.title_distribution_settings.length > 0 ? (
-                              <div>
-                                <div>Company: {title.title_distribution_settings[0].company_percentage}%</div>
-                                <div className="text-xs text-gray-400">
-                                  Filmmaker: {title.title_distribution_settings[0].filmmaker_percentage}%
-                                </div>
+                              <div className="space-y-1">
+                                {(() => {
+                                  const global = title.title_distribution_settings.find(s => !s.platform);
+                                  const platforms = title.title_distribution_settings.filter(s => !!s.platform);
+                                  return (
+                                    <>
+                                      <div className="text-xs font-medium text-gray-700">
+                                        Default: {global?.company_percentage ?? 25}% / {global?.filmmaker_percentage ?? 75}%
+                                      </div>
+                                      {platforms.map(s => (
+                                        <div key={s.platform} className="text-xs text-blue-600">
+                                          {s.platform}: {s.company_percentage}% / {s.filmmaker_percentage}%
+                                        </div>
+                                      ))}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             ) : (
-                              <span className="text-yellow-600">25% / 75%</span>
+                              <span className="text-yellow-600 text-xs">25% / 75% (default)</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1718,7 +1754,7 @@ export function AdminDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Duration (minutes)"
                     type="number"
@@ -1732,13 +1768,6 @@ export function AdminDashboard() {
                     onChange={(e) => setEditTitle({ ...editTitle, rating: e.target.value })}
                     placeholder="PG-13, R, etc."
                   />
-                  <Input
-                    label="Company Distribution %"
-                    type="number"
-                    value={editTitle.distribution_percentage}
-                    onChange={(e) => setEditTitle({ ...editTitle, distribution_percentage: e.target.value })}
-                    placeholder="25"
-                  />
                 </div>
 
                 <Input
@@ -1747,6 +1776,15 @@ export function AdminDashboard() {
                   onChange={(e) => setEditTitle({ ...editTitle, description: e.target.value })}
                   placeholder="Brief description of the title"
                 />
+
+                {/* Distribution splits */}
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Distribution Splits</h4>
+                  <PlatformSplitEditor
+                    value={editTitleSplits}
+                    onChange={setEditTitleSplits}
+                  />
+                </div>
 
                 <div className="border-t pt-4">
                   <h4 className="text-md font-medium text-gray-900 mb-3">Historical Financial Data</h4>
