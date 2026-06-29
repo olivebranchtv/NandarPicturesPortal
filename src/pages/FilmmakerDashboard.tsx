@@ -248,17 +248,28 @@ export function FilmmakerDashboard() {
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
       const totalExpenses = historicalTotals.historicalExpenses + streamingTotals.streamingExpenses;
 
-      // Actual cash paid out via approved payment requests
+      // Cash paid via approved payment requests (portal payouts)
       const paidViaRequests = (requestsData ?? [])
         .filter((r: any) => r.status === 'paid')
         .reduce((sum: number, r: any) => sum + (r.amount_approved ?? r.amount_requested ?? 0), 0);
 
+      // historicalPaid = previous_amount_paid from content table (pre-portal payments)
+      // streamingPaid  = negative net_amount entries (old withdrawal tracking method)
       const totalPaidWithHistory = historicalTotals.historicalPaid + streamingTotals.streamingPaid + paidViaRequests;
 
-      // Available = net streaming revenue minus everything already paid out
+      // Historical balance due = what was already owed before the portal
+      // (previous_net_revenue − previous_amount_paid), already stored as previous_balance_due
+      const historicalBalanceDue = filmmakertitles.reduce(
+        (sum, t) => sum + (t.previous_balance_due || 0), 0
+      );
+
+      // Available = current net streaming revenue
+      //           + historical unpaid balance carried forward
+      //           − payouts made via portal payment requests
+      // Note: streamingNet already nets out negative-entry withdrawals (streamingPaid)
       const availableBalance = Math.max(
         0,
-        streamingTotals.streamingNet - paidViaRequests - historicalTotals.historicalPaid
+        streamingTotals.streamingNet + historicalBalanceDue - paidViaRequests
       );
 
       const finalStats = {

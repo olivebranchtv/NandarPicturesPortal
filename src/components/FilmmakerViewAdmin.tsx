@@ -103,22 +103,40 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
         0
       );
 
-      // Total paid = sum of all payment_requests marked as paid for this filmmaker
+      // Paid via portal payment requests
       const paidRequestsRes = await supabase!
         .from('payment_requests')
         .select('amount_approved, amount_requested')
         .eq('filmmaker_id', filmmaker.id)
         .eq('status', 'paid');
 
-      const totalPaid = (paidRequestsRes.data ?? []).reduce(
+      const paidViaRequests = (paidRequestsRes.data ?? []).reduce(
         (sum, r) => sum + (r.amount_approved ?? r.amount_requested ?? 0), 0
       );
+
+      // Pre-portal payments recorded in content.previous_amount_paid
+      const historicalPaid = (titlesRes.data ?? []).reduce(
+        (sum, t) => sum + (t.previous_amount_paid || 0), 0
+      );
+
+      // Historical balance still owed before portal (previous_net_revenue − previous_amount_paid)
+      const historicalBalanceDue = (titlesRes.data ?? []).reduce(
+        (sum, t) => sum + (t.previous_balance_due || 0), 0
+      );
+
+      const totalPaid = historicalPaid + paidViaRequests;
+
+      // netEarnings here = sum(payments.net_amount) + sum(previous_net_revenue)
+      // Available = current net payments + historical unpaid balance − portal payouts
+      const currentNetEarnings = allPayments
+        .filter((p: any) => !String(p.id).startsWith('historical-'))
+        .reduce((sum: number, p: any) => sum + (p.net_amount || 0), 0);
 
       setStats({
         totalTitles: titlesRes.data?.length || 0,
         totalEarnings,
         totalPaid,
-        availableBalance: Math.max(0, netEarnings - totalPaid),
+        availableBalance: Math.max(0, currentNetEarnings + historicalBalanceDue - paidViaRequests),
       });
     } catch (error) {
       console.error('Error fetching filmmaker data:', error);
@@ -246,8 +264,18 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
                           {title.content_type} • {title.status}
                         </div>
                         <div className="text-sm text-gray-700 mt-1">
-                          Revenue: ${title.revenue_total.toLocaleString()}
+                          Current revenue: ${title.revenue_total.toLocaleString()}
+                          {title.previous_gross_amount > 0 && (
+                            <span className="ml-2 text-gray-400">
+                              + ${title.previous_gross_amount.toLocaleString()} historical
+                            </span>
+                          )}
                         </div>
+                        {title.previous_balance_due > 0 && (
+                          <div className="text-xs text-orange-600 mt-0.5">
+                            Historical balance carried forward: ${title.previous_balance_due.toLocaleString()}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -303,24 +331,32 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
           </div>
 
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">
-              Filmmaker Information
-            </h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <h4 className="font-medium text-blue-900 mb-3">Filmmaker Information</h4>
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-blue-700">PayPal:</span>{' '}
-                <span className="text-blue-900">
-                  {filmmaker.paypal_email || 'Not set'}
+                <span className="text-blue-700 font-medium">Preferred method:</span>{' '}
+                <span className="text-blue-900 capitalize">
+                  {(filmmaker as any).payout_method?.replace('_', ' ') || 'Not set'}
                 </span>
               </div>
               <div>
-                <span className="text-blue-700">Venmo:</span>{' '}
+                <span className="text-blue-700 font-medium">PayPal:</span>{' '}
+                <span className="text-blue-900">{filmmaker.paypal_email || 'Not set'}</span>
+              </div>
+              <div>
+                <span className="text-blue-700 font-medium">Venmo:</span>{' '}
                 <span className="text-blue-900">
-                  {filmmaker.venmo_username || 'Not set'}
+                  {filmmaker.venmo_username ? `@${filmmaker.venmo_username}` : 'Not set'}
                 </span>
               </div>
               <div>
-                <span className="text-blue-700">Address:</span>{' '}
+                <span className="text-blue-700 font-medium">Zelle:</span>{' '}
+                <span className="text-blue-900">
+                  {(filmmaker as any).zelle_identifier || 'Not set'}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-blue-700 font-medium">Address:</span>{' '}
                 <span className="text-blue-900">
                   {filmmaker.address
                     ? `${filmmaker.address}, ${filmmaker.city}, ${filmmaker.state} ${filmmaker.zip_code}`
