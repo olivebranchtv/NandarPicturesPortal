@@ -379,7 +379,7 @@ export function AdminDashboard() {
       release_date: title.release_date || '',
       duration_minutes: title.duration_minutes?.toString() || '',
       rating: title.rating || '',
-      filmmaker_id: title.filmmaker_id || '',
+      filmmaker_id: title.filmmaker_id || (title as any).owner_id || '',
       distribution_percentage: '25', // kept for add-title path only
       previous_gross_amount: title.previous_gross_amount?.toString() || '',
       previous_expenses: title.previous_expenses?.toString() || '',
@@ -402,8 +402,8 @@ export function AdminDashboard() {
   };
 
   const handleUpdateTitle = async () => {
-    if (!editingTitle || !editTitle.title_name || !editTitle.filmmaker_id) {
-      toast.error('Please fill in title name and select a filmmaker');
+    if (!editingTitle || !editTitle.title_name) {
+      toast.error('Please fill in the title name');
       return;
     }
 
