@@ -23,6 +23,7 @@ import { AuditLog } from '../components/AuditLog';
 import { TopTitlesLeaderboard } from '../components/TopTitlesLeaderboard';
 import { FilmmakerSummaryReport } from '../components/FilmmakerSummaryReport';
 import { BalancesDueCard } from '../components/BalancesDueCard';
+import { TaxDocuments } from '../components/TaxDocuments';
 
 interface AdminStats {
   totalUsers: number;
@@ -41,7 +42,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests' | 'audit' | 'admins'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests' | 'audit' | 'admins' | 'tax'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
@@ -800,6 +801,16 @@ export function AdminDashboard() {
             >
               Admins
             </button>
+            <button
+              onClick={() => setActiveTab('tax')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'tax'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Tax Docs
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1326,6 +1337,11 @@ export function AdminDashboard() {
       {activeTab === 'admins' && (
         <div key="admins-tab">
           <AdminUserManagement />
+        </div>
+      )}
+      {activeTab === 'tax' && (
+        <div key="tax-tab">
+          <TaxDocuments />
         </div>
       )}
       {activeTab === 'overview' && (
