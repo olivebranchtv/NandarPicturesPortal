@@ -88,7 +88,6 @@ export function UnassignedContentManager({ onUpdate }: UnassignedContentManagerP
 
       const { error: paymentError } = await supabase!.from('payments').insert({
         content_id: selectedTitleId,
-        filmmaker_id: title.filmmaker_id,
         payment_date: selectedItem.payment_date,
         gross_amount: grossAmount,
         distribution_fee: distributionFee,
@@ -160,7 +159,6 @@ export function UnassignedContentManager({ onUpdate }: UnassignedContentManagerP
 
       const { error: paymentError } = await supabase!.from('payments').insert({
         content_id: newTitle.id,
-        filmmaker_id: newTitleData.filmmaker_id,
         payment_date: selectedItem.payment_date,
         gross_amount: grossAmount,
         distribution_fee: distributionFee,
