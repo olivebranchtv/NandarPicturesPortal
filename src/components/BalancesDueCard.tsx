@@ -31,10 +31,18 @@ export function BalancesDueCard() {
         if (usersRes.error) throw usersRes.error;
         const filmmakers = usersRes.data ?? [];
 
-        // 2. All content with historical balance fields, keyed by filmmaker_id / owner_id
+        // Build email → filmmaker id map for owner_email fallback
+        const emailToId = new Map<string, string>();
+        const idToEmail = new Map<string, string>();
+        for (const u of filmmakers) {
+          if (u.email) emailToId.set(u.email.toLowerCase(), u.id);
+          idToEmail.set(u.id, u.email?.toLowerCase() ?? '');
+        }
+
+        // 2. All content — resolve filmmaker via filmmaker_id, owner_id, or owner_email
         const contentRes = await supabase
           .from('content')
-          .select('id, filmmaker_id, owner_id, previous_balance_due, title_name');
+          .select('id, filmmaker_id, owner_id, owner_email, previous_balance_due, title_name');
         const contents = contentRes.data ?? [];
 
         // Build map: filmmaker id → sum of previous_balance_due
@@ -44,7 +52,10 @@ export function BalancesDueCard() {
         // Build map: filmmaker id → title names
         const titlesMap = new Map<string, string[]>();
         for (const c of contents) {
-          const fid = c.filmmaker_id || c.owner_id;
+          const fid =
+            c.filmmaker_id ||
+            c.owner_id ||
+            (c.owner_email ? emailToId.get(c.owner_email.toLowerCase()) : undefined);
           if (!fid) continue;
           contentFilmmakerMap.set(c.id, fid);
           if (c.title_name) {
@@ -56,13 +67,19 @@ export function BalancesDueCard() {
           }
         }
 
-        // 3. Streaming net from payments table (via content_id → filmmaker)
-        const paymentsRes = await supabase
-          .from('payments')
-          .select('content_id, net_amount');
+        // 3. Streaming net from payments + streaming_payments (via content_id → filmmaker)
+        const [paymentsRes, streamingRes] = await Promise.all([
+          supabase.from('payments').select('content_id, net_amount'),
+          supabase.from('streaming_payments').select('title_id, net_amount'),
+        ]);
         const streamingNetMap = new Map<string, number>();
         for (const p of paymentsRes.data ?? []) {
           const fid = contentFilmmakerMap.get(p.content_id);
+          if (!fid) continue;
+          streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
+        }
+        for (const p of streamingRes.data ?? []) {
+          const fid = contentFilmmakerMap.get(p.title_id);
           if (!fid) continue;
           streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
         }
