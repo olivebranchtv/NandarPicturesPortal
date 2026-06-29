@@ -67,21 +67,39 @@ export function BalancesDueCard() {
           }
         }
 
-        // 3. Streaming net from payments + streaming_payments (via content_id → filmmaker)
-        const [paymentsRes, streamingRes] = await Promise.all([
-          supabase.from('payments').select('content_id, net_amount'),
-          supabase.from('streaming_payments').select('title_id, net_amount'),
-        ]);
+        // 3. Streaming net from payments + streaming_payments — paginate to avoid 1000-row default cap
         const streamingNetMap = new Map<string, number>();
-        for (const p of paymentsRes.data ?? []) {
-          const fid = contentFilmmakerMap.get(p.content_id);
-          if (!fid) continue;
-          streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
+        const BATCH = 1000;
+
+        // payments table
+        let from = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { data } = await supabase
+            .from('payments')
+            .select('content_id, net_amount')
+            .range(from, from + BATCH - 1);
+          for (const p of data ?? []) {
+            const fid = contentFilmmakerMap.get(p.content_id);
+            if (fid) streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
+          }
+          hasMore = (data?.length ?? 0) === BATCH;
+          from += BATCH;
         }
-        for (const p of streamingRes.data ?? []) {
-          const fid = contentFilmmakerMap.get(p.title_id);
-          if (!fid) continue;
-          streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
+
+        // streaming_payments table
+        from = 0; hasMore = true;
+        while (hasMore) {
+          const { data } = await supabase
+            .from('streaming_payments')
+            .select('title_id, net_amount')
+            .range(from, from + BATCH - 1);
+          for (const p of data ?? []) {
+            const fid = contentFilmmakerMap.get(p.title_id);
+            if (fid) streamingNetMap.set(fid, (streamingNetMap.get(fid) ?? 0) + (p.net_amount ?? 0));
+          }
+          hasMore = (data?.length ?? 0) === BATCH;
+          from += BATCH;
         }
 
         // 4. Portal payouts already made (payment_requests status=paid)
