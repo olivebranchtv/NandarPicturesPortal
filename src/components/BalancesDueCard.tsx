@@ -7,6 +7,7 @@ interface FilmmakerBalance {
   id: string;
   name: string;
   email: string;
+  titles: string[];
   streamingNet: number;
   historicalBalanceDue: number;
   paidViaRequests: number;
@@ -33,17 +34,23 @@ export function BalancesDueCard() {
         // 2. All content with historical balance fields, keyed by filmmaker_id / owner_id
         const contentRes = await supabase
           .from('content')
-          .select('id, filmmaker_id, owner_id, previous_balance_due');
+          .select('id, filmmaker_id, owner_id, previous_balance_due, title_name');
         const contents = contentRes.data ?? [];
 
         // Build map: filmmaker id → sum of previous_balance_due
         const historicalMap = new Map<string, number>();
         // Build map: content_id → filmmaker id (for payments join)
         const contentFilmmakerMap = new Map<string, string>();
+        // Build map: filmmaker id → title names
+        const titlesMap = new Map<string, string[]>();
         for (const c of contents) {
           const fid = c.filmmaker_id || c.owner_id;
           if (!fid) continue;
           contentFilmmakerMap.set(c.id, fid);
+          if (c.title_name) {
+            const existing = titlesMap.get(fid) ?? [];
+            if (!existing.includes(c.title_name)) titlesMap.set(fid, [...existing, c.title_name]);
+          }
           if (c.previous_balance_due && c.previous_balance_due > 0) {
             historicalMap.set(fid, (historicalMap.get(fid) ?? 0) + c.previous_balance_due);
           }
@@ -82,6 +89,7 @@ export function BalancesDueCard() {
               id: u.id,
               name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
               email: u.email,
+              titles: titlesMap.get(u.id) ?? [],
               streamingNet,
               historicalBalanceDue,
               paidViaRequests,
@@ -171,6 +179,11 @@ export function BalancesDueCard() {
                           <div>
                             <p className="font-medium text-gray-900">{r.name}</p>
                             <p className="text-xs text-gray-400">{r.email}</p>
+                            {r.titles.length > 0 && (
+                              <p className="text-xs text-blue-600 mt-0.5 italic">
+                                {r.titles.join(' · ')}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
