@@ -897,7 +897,7 @@ export function AdminDashboard() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="sticky left-0 z-10 bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                         Title
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -922,11 +922,16 @@ export function AdminDashboard() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {titles
-                      .filter(t => !titlesSearch || t.title_name.toLowerCase().includes(titlesSearch.toLowerCase()) || (t.filmmaker as any)?.email?.toLowerCase().includes(titlesSearch.toLowerCase()))
+                      .filter(t => !titlesSearch ||
+                        t.title_name.toLowerCase().includes(titlesSearch.toLowerCase()) ||
+                        (t.filmmaker as any)?.email?.toLowerCase().includes(titlesSearch.toLowerCase()) ||
+                        (t.filmmaker as any)?.first_name?.toLowerCase().includes(titlesSearch.toLowerCase()) ||
+                        (t.filmmaker as any)?.last_name?.toLowerCase().includes(titlesSearch.toLowerCase())
+                      )
                       .slice((titlesPage - 1) * PAGE_SIZE, titlesPage * PAGE_SIZE)
                       .map((title) => (
                       <tr key={title.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 px-6 py-4 whitespace-nowrap border-r border-gray-100">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
                               {title.title_name}
@@ -1510,13 +1515,22 @@ export function AdminDashboard() {
           {/* All Titles Management */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <h3 className="text-lg font-semibold flex items-center">
                   <Film className="h-5 w-5 mr-2" />
                   All Titles Management
                 </h3>
-                <div className="text-sm text-gray-500">
-                  {titles.length} title{titles.length !== 1 ? 's' : ''}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    placeholder="Search titles..."
+                    value={titlesSearch}
+                    onChange={e => setTitlesSearch(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 w-48"
+                  />
+                  <div className="text-sm text-gray-500">
+                    {titles.length} title{titles.length !== 1 ? 's' : ''}
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -1526,7 +1540,7 @@ export function AdminDashboard() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="sticky left-0 z-10 bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Title
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1550,9 +1564,16 @@ export function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {titles.map((title) => (
+                      {titles
+                        .filter(t => !titlesSearch ||
+                          t.title_name.toLowerCase().includes(titlesSearch.toLowerCase()) ||
+                          (t.filmmaker as any)?.email?.toLowerCase().includes(titlesSearch.toLowerCase()) ||
+                          (t.filmmaker as any)?.first_name?.toLowerCase().includes(titlesSearch.toLowerCase()) ||
+                          (t.filmmaker as any)?.last_name?.toLowerCase().includes(titlesSearch.toLowerCase())
+                        )
+                        .map((title) => (
                         <tr key={title.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="sticky left-0 z-10 bg-white hover:bg-gray-50 px-6 py-4 whitespace-nowrap border-r border-gray-100">
                             <div>
                               <div className="text-sm font-medium text-gray-900">
                                 {title.title_name}
