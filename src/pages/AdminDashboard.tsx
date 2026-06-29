@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Film, DollarSign, Clock, Plus, Check, X, Edit, BarChart3, Upload } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { supabase, User, Content, PaymentRequest, StreamingPayment } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
@@ -108,6 +110,29 @@ export function AdminDashboard() {
     notes: '',
   });
 
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Button loading states
+  const [savingFilmmaker, setSavingFilmmaker] = useState(false);
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+
+  // Pagination state
+  const [titlesPage, setTitlesPage] = useState(1);
+  const [filmmakersPage, setFilmmakersPage] = useState(1);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [titlesSearch, setTitlesSearch] = useState('');
+  const [filmmakersSearch, setFilmmakersSearch] = useState('');
+  const PAGE_SIZE = 20;
+
   useEffect(() => {
     if (profile?.role === 'admin') {
       fetchDashboardData();
@@ -116,23 +141,16 @@ export function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      console.log('Fetching admin dashboard data...');
-      
-      // Fetch all users
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
-      console.log('Users query result:', { usersData, usersError });
       if (usersError) throw usersError;
 
-      // Filter filmmakers
       const filmmakersData = usersData?.filter(user => user.role === 'filmmaker') || [];
       setFilmmakers(filmmakersData);
-      console.log('Filmmakers found:', filmmakersData.length);
 
-      // Fetch all content/titles with distribution settings
       const { data: titlesData, error: titlesError } = await supabase
         .from('content')
         .select(`
@@ -142,11 +160,9 @@ export function AdminDashboard() {
         `)
         .order('title_name', { ascending: true });
 
-      console.log('Titles query result:', { titlesData, titlesError });
       if (titlesError) throw titlesError;
       setTitles(titlesData || []);
 
-      // Fetch payment requests with filmmaker info
       const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
         .select(`
@@ -155,7 +171,6 @@ export function AdminDashboard() {
         `)
         .order('requested_at', { ascending: false });
 
-      console.log('Payment requests query result:', { requestsData, requestsError });
       if (requestsError) throw requestsError;
       setPaymentRequests(requestsData || []);
 
@@ -187,7 +202,6 @@ export function AdminDashboard() {
       }
 
       const paymentsData = allPayments;
-      console.log(`✅ Fetched ALL ${paymentsData.length} payments from database`);
 
       // Transform payments to match StreamingPayment format
       const transformedPayments = (paymentsData || []).map(p => ({
@@ -249,13 +263,12 @@ export function AdminDashboard() {
 
   const handleCreateFilmmaker = async () => {
     if (!newFilmmaker.email || !newFilmmaker.first_name || !newFilmmaker.last_name) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
+    setSavingFilmmaker(true);
     try {
-      console.log('Creating filmmaker:', newFilmmaker);
-      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-filmmaker`, {
         method: 'POST',
         headers: {
@@ -266,28 +279,29 @@ export function AdminDashboard() {
       });
 
       const result = await response.json();
-      console.log('Create filmmaker result:', result);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to create filmmaker');
       }
 
-      alert(`Filmmaker created successfully! Temporary password: ${result.temporary_password}`);
+      toast.success(`Filmmaker created! Temporary password: ${result.temporary_password}`);
       setNewFilmmaker({ email: '', first_name: '', last_name: '' });
       setShowAddFilmmaker(false);
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error creating filmmaker:', error);
-      alert(`Error creating filmmaker: ${error.message}`);
+    } catch (error: any) {
+      toast.error(`Error creating filmmaker: ${error.message}`);
+    } finally {
+      setSavingFilmmaker(false);
     }
   };
 
   const handleCreateTitle = async () => {
     if (!newTitle.title_name || !newTitle.filmmaker_id) {
-      alert('Please fill in title name and select a filmmaker');
+      toast.error('Please fill in title name and select a filmmaker');
       return;
     }
 
+    setSavingTitle(true);
     try {
       const { data, error } = await supabase
         .from('content')
@@ -311,29 +325,20 @@ export function AdminDashboard() {
         .select()
         .maybeSingle();
 
-      if (error) {
-        console.error('Error creating title:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Create distribution settings for the title
       const companyPercentage = newTitle.distribution_percentage ? parseFloat(newTitle.distribution_percentage) : 25;
-      const filmmakertPercentage = 100 - companyPercentage;
+      const filmmakerPercentage = 100 - companyPercentage;
 
-      const { error: distributionError } = await supabase
+      await supabase
         .from('title_distribution_settings')
         .insert({
           title_id: data.id,
           company_percentage: companyPercentage,
-          filmmaker_percentage: filmmakertPercentage,
+          filmmaker_percentage: filmmakerPercentage,
         });
 
-      if (distributionError) {
-        console.error('Error creating distribution settings:', distributionError);
-        // Don't throw here - title was created successfully, just log the error
-      }
-
-      alert('Title created successfully!');
+      toast.success('Title created successfully!');
       setNewTitle({
         title_name: '',
         content_type: 'movie',
@@ -353,9 +358,10 @@ export function AdminDashboard() {
       });
       setShowAddTitle(false);
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error creating title:', error);
-      alert('Error creating title. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error creating title. Please try again.');
+    } finally {
+      setSavingTitle(false);
     }
   };
 
@@ -389,10 +395,11 @@ export function AdminDashboard() {
 
   const handleUpdateTitle = async () => {
     if (!editingTitle || !editTitle.title_name || !editTitle.filmmaker_id) {
-      alert('Please fill in title name and select a filmmaker');
+      toast.error('Please fill in title name and select a filmmaker');
       return;
     }
 
+    setSavingTitle(true);
     try {
       const { error } = await supabase
         .from('content')
@@ -416,62 +423,45 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      // Update distribution settings
       const companyPercentage = editTitle.distribution_percentage ? parseFloat(editTitle.distribution_percentage) : 25;
       const filmmakerPercentage = 100 - companyPercentage;
 
-      console.log('Updating distribution settings:', {
-        title_id: editingTitle.id,
-        company_percentage: companyPercentage,
-        filmmaker_percentage: filmmakerPercentage
-      });
-
-      const { error: distributionError } = await supabase
+      await supabase
         .from('title_distribution_settings')
         .upsert([{
           title_id: editingTitle.id,
           company_percentage: companyPercentage,
           filmmaker_percentage: filmmakerPercentage,
-        }], {
-          onConflict: 'title_id',
-          ignoreDuplicates: false
-        });
+        }], { onConflict: 'title_id', ignoreDuplicates: false });
 
-      if (distributionError) {
-        console.error('Error updating distribution settings:', distributionError);
-      }
-
-      alert('Title updated successfully!');
+      toast.success('Title updated successfully!');
       setShowEditTitle(false);
       setEditingTitle(null);
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error updating title:', error);
-      alert('Error updating title. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error updating title. Please try again.');
+    } finally {
+      setSavingTitle(false);
     }
   };
 
-  const handleDeleteTitle = async (titleId: string) => {
-    if (!confirm('Are you sure you want to delete this title? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      console.log('Deleting title:', titleId);
-
-      const { error } = await supabase
-        .from('content')
-        .delete()
-        .eq('id', titleId);
-
-      if (error) throw error;
-
-      alert('Title deleted successfully!');
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error deleting title:', error);
-      alert('Error deleting title. Please try again.');
-    }
+  const handleDeleteTitle = (titleId: string) => {
+    setConfirmModal({
+      title: 'Delete Title',
+      message: 'Are you sure you want to delete this title? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          const { error } = await supabase.from('content').delete().eq('id', titleId);
+          if (error) throw error;
+          toast.success('Title deleted successfully!');
+          fetchDashboardData();
+        } catch (error: any) {
+          toast.error(error.message || 'Error deleting title. Please try again.');
+        }
+      },
+    });
   };
 
   const handleAssignFilmmakerClick = (title: Content) => {
@@ -482,10 +472,11 @@ export function AdminDashboard() {
 
   const handleAssignFilmmaker = async () => {
     if (!assigningTitle || !selectedFilmmakerForAssign) {
-      alert('Please select a filmmaker');
+      toast.error('Please select a filmmaker');
       return;
     }
 
+    setSavingTitle(true);
     try {
       const { error } = await supabase
         .from('content')
@@ -497,24 +488,26 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      alert('Filmmaker assigned successfully!');
+      toast.success('Filmmaker assigned successfully!');
       setShowAssignFilmmaker(false);
       setAssigningTitle(null);
       setSelectedFilmmakerForAssign('');
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error assigning filmmaker:', error);
-      alert('Error assigning filmmaker. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error assigning filmmaker. Please try again.');
+    } finally {
+      setSavingTitle(false);
     }
   };
+
   const handleAddPayment = async () => {
     if (!newPayment.title_id || !newPayment.platform || !newPayment.payment_date || !newPayment.gross_amount) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
+    setSavingPayment(true);
     try {
-      // Get the title's filmmaker info
       const { data: titleData, error: titleError } = await supabase
         .from('content')
         .select('*')
@@ -523,11 +516,10 @@ export function AdminDashboard() {
 
       if (titleError) throw titleError;
       if (!titleData) {
-        alert('Title not found');
+        toast.error('Title not found');
         return;
       }
 
-      // Calculate distribution fee and net amount
       const grossAmount = parseFloat(newPayment.gross_amount);
       const distributionFee = Math.round(grossAmount * 0.25 * 100) / 100;
       const netAmount = Math.round((grossAmount - distributionFee) * 100) / 100;
@@ -550,62 +542,62 @@ export function AdminDashboard() {
 
       if (error) throw error;
 
-      alert('Payment added successfully!');
-      setNewPayment({
-        title_id: '',
-        platform: '',
-        outlet: '',
-        payment_date: '',
-        gross_amount: '',
-        notes: '',
-      });
+      toast.success('Payment added successfully!');
+      setNewPayment({ title_id: '', platform: '', outlet: '', payment_date: '', gross_amount: '', notes: '' });
       setShowAddPayment(false);
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error adding payment:', error);
-      alert('Error adding payment. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error adding payment. Please try again.');
+    } finally {
+      setSavingPayment(false);
     }
   };
 
   const handleApprovePayment = async (requestId: string, approvedAmount: number) => {
+    setApprovingId(requestId);
     try {
       const { error } = await supabase
         .from('payment_requests')
         .update({
           status: 'approved',
-          amount_approved: approvedAmount
+          amount_approved: approvedAmount,
+          approved_by: profile?.id,
         })
         .eq('id', requestId);
 
       if (error) throw error;
 
-      alert('Payment request approved! Expect payment within 14 days from time of request.');
+      toast.success('Payment request approved! Filmmaker will be paid within 14 days.');
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error approving payment:', error);
-      alert('Error approving payment request. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error approving payment request. Please try again.');
+    } finally {
+      setApprovingId(null);
     }
   };
 
   const handleMarkAsPaid = async (requestId: string, paymentMethod: string) => {
+    setMarkingPaidId(requestId);
     try {
       const { error } = await supabase
         .from('payment_requests')
         .update({
           status: 'paid',
           payment_method_used: paymentMethod,
-          date_paid: new Date().toISOString()
+          date_paid: new Date().toISOString(),
+          approved_by: profile?.id,
         })
         .eq('id', requestId);
 
       if (error) throw error;
 
-      alert('Payment marked as paid!');
+      toast.success('Payment marked as paid!');
       setApprovingRequest(null);
       fetchDashboardData();
-    } catch (error) {
-      console.error('Error marking payment as paid:', error);
-      alert('Error marking payment. Please try again.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error marking payment. Please try again.');
+    } finally {
+      setMarkingPaidId(null);
     }
   };
 
@@ -780,6 +772,13 @@ export function AdminDashboard() {
                 All Titles Management
               </h3>
               <div className="flex items-center space-x-3">
+                <input
+                  type="text"
+                  placeholder="Search titles..."
+                  value={titlesSearch}
+                  onChange={e => { setTitlesSearch(e.target.value); setTitlesPage(1); }}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 w-48"
+                />
                 <Button
                   size="sm"
                   variant="secondary"
@@ -824,7 +823,10 @@ export function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {titles.map((title) => (
+                    {titles
+                      .filter(t => !titlesSearch || t.title_name.toLowerCase().includes(titlesSearch.toLowerCase()) || (t.filmmaker as any)?.email?.toLowerCase().includes(titlesSearch.toLowerCase()))
+                      .slice((titlesPage - 1) * PAGE_SIZE, titlesPage * PAGE_SIZE)
+                      .map((title) => (
                       <tr key={title.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
@@ -918,6 +920,22 @@ export function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
+                {/* Titles Pagination */}
+                {(() => {
+                  const filtered = titles.filter(t => !titlesSearch || t.title_name.toLowerCase().includes(titlesSearch.toLowerCase()) || (t.filmmaker as any)?.email?.toLowerCase().includes(titlesSearch.toLowerCase()));
+                  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                  if (totalPages <= 1) return null;
+                  return (
+                    <div className="mt-4 flex items-center justify-between border-t pt-4">
+                      <span className="text-sm text-gray-600">Showing {(titlesPage - 1) * PAGE_SIZE + 1}–{Math.min(titlesPage * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" disabled={titlesPage === 1} onClick={() => setTitlesPage(p => p - 1)}>Previous</Button>
+                        <span className="px-3 py-2 text-sm text-gray-600">Page {titlesPage} of {totalPages}</span>
+                        <Button size="sm" variant="secondary" disabled={titlesPage >= totalPages} onClick={() => setTitlesPage(p => p + 1)}>Next</Button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="text-center py-12">
@@ -947,8 +965,17 @@ export function AdminDashboard() {
                 <Users className="h-5 w-5 mr-2" />
                 All Filmmakers
               </h3>
-              <div className="text-sm text-gray-500">
-                {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''}
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Search filmmakers..."
+                  value={filmmakersSearch}
+                  onChange={e => { setFilmmakersSearch(e.target.value); setFilmmakersPage(1); }}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 w-48"
+                />
+                <div className="text-sm text-gray-500">
+                  {filmmakers.length} filmmaker{filmmakers.length !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -976,7 +1003,10 @@ export function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filmmakers.map((filmmaker) => {
+                    {filmmakers
+                      .filter(f => !filmmakersSearch || `${f.first_name} ${f.last_name} ${f.email}`.toLowerCase().includes(filmmakersSearch.toLowerCase()))
+                      .slice((filmmakersPage - 1) * PAGE_SIZE, filmmakersPage * PAGE_SIZE)
+                      .map((filmmaker) => {
                       const filmmakerTitles = titles.filter(t => t.filmmaker_id === filmmaker.id);
                       return (
                         <tr key={filmmaker.id} className="hover:bg-gray-50">
@@ -1005,6 +1035,22 @@ export function AdminDashboard() {
                     })}
                   </tbody>
                 </table>
+                {/* Filmmakers Pagination */}
+                {(() => {
+                  const filtered = filmmakers.filter(f => !filmmakersSearch || `${f.first_name} ${f.last_name} ${f.email}`.toLowerCase().includes(filmmakersSearch.toLowerCase()));
+                  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                  if (totalPages <= 1) return null;
+                  return (
+                    <div className="mt-4 flex items-center justify-between border-t pt-4">
+                      <span className="text-sm text-gray-600">Showing {(filmmakersPage - 1) * PAGE_SIZE + 1}–{Math.min(filmmakersPage * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" disabled={filmmakersPage === 1} onClick={() => setFilmmakersPage(p => p - 1)}>Previous</Button>
+                        <span className="px-3 py-2 text-sm text-gray-600">Page {filmmakersPage} of {totalPages}</span>
+                        <Button size="sm" variant="secondary" disabled={filmmakersPage >= totalPages} onClick={() => setFilmmakersPage(p => p + 1)}>Next</Button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="text-center py-12">
@@ -1094,6 +1140,7 @@ export function AdminDashboard() {
                               <>
                                 <Button
                                   size="sm"
+                                  loading={approvingId === request.id}
                                   onClick={() => handleApprovePayment(request.id, request.amount_requested)}
                                 >
                                   <Check className="h-3 w-3 mr-1" />
@@ -1102,11 +1149,20 @@ export function AdminDashboard() {
                                 <Button
                                   size="sm"
                                   variant="danger"
-                                  onClick={() => {
-                                    if (confirm('Reject this payment request?')) {
-                                      supabase?.from('payment_requests').update({ status: 'rejected' }).eq('id', request.id).then(() => fetchDashboardData());
-                                    }
-                                  }}
+                                  onClick={() =>
+                                    setConfirmModal({
+                                      title: 'Reject Payment Request',
+                                      message: `Reject this $${request.amount_requested.toLocaleString()} payment request?`,
+                                      confirmLabel: 'Reject',
+                                      onConfirm: () => {
+                                        setConfirmModal(null);
+                                        supabase?.from('payment_requests')
+                                          .update({ status: 'rejected', approved_by: profile?.id })
+                                          .eq('id', request.id)
+                                          .then(() => { toast.success('Request rejected.'); fetchDashboardData(); });
+                                      },
+                                    })
+                                  }
                                 >
                                   <X className="h-3 w-3 mr-1" />
                                   Reject
@@ -2016,6 +2072,16 @@ export function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
     </div>
   );

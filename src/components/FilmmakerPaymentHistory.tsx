@@ -6,10 +6,10 @@ import { Input } from './ui/Input';
 import { supabase, Payment } from '../lib/supabase';
 
 interface FilmmakerPaymentHistoryProps {
-  filmmakerI: string;
+  filmakerId: string;
 }
 
-export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryProps) {
+export function FilmmakerPaymentHistory({ filmakerId }: FilmmakerPaymentHistoryProps) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -18,7 +18,7 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
 
   useEffect(() => {
     fetchPayments();
-  }, [filmmakerI]);
+  }, [filmakerId]);
 
   const fetchPayments = async () => {
     try {
@@ -26,7 +26,7 @@ export function FilmmakerPaymentHistory({ filmmakerI }: FilmmakerPaymentHistoryP
       const { data: titlesData, error: titlesError } = await supabase!
         .from('content')
         .select('id')
-        .eq('filmmaker_id', filmmakerI);
+        .eq('filmmaker_id', filmakerId);
 
       if (titlesError) throw titlesError;
 

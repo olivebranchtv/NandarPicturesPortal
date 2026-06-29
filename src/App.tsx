@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { AuthPage } from './components/auth/AuthPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { FilmmakerDashboard } from './pages/FilmmakerDashboard';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { supabase } from './lib/supabase';
 
 function App() {
@@ -65,7 +66,7 @@ function App() {
             path="/admin/dashboard"
             element={
               profile.role === 'admin' ? (
-                <AdminDashboard />
+                <ErrorBoundary><AdminDashboard /></ErrorBoundary>
               ) : (
                 <Navigate to="/filmmaker/dashboard" replace />
               )
@@ -75,7 +76,7 @@ function App() {
             path="/filmmaker/dashboard"
             element={
               profile.role === 'filmmaker' ? (
-                <FilmmakerDashboard />
+                <ErrorBoundary><FilmmakerDashboard /></ErrorBoundary>
               ) : (
                 <Navigate to="/admin/dashboard" replace />
               )

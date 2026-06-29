@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from './ui/Button';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { parsePaymentFile, ParsedPaymentRow } from '../lib/fileParser';
 import { findBestMatch } from '../lib/fuzzyMatch';
 import { supabase, Content } from '../lib/supabase';
 import { roundToTwoDecimals, calculateDistributionFee, calculateNetAmount } from '../lib/formatters';
+
+const MAX_FILE_SIZE_MB = 10;
 
 interface PaymentUploadProps {
   onUploadComplete: () => void;
@@ -32,6 +35,11 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      if (selectedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        toast.error(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+        e.target.value = '';
+        return;
+      }
       setFile(selectedFile);
       setParsedRows([]);
       setErrors([]);

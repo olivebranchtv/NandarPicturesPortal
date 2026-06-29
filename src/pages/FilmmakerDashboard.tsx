@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Film, DollarSign, Clock, TrendingUp, Plus, BarChart3, User, Settings, LogOut } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -50,6 +51,7 @@ export function FilmmakerDashboard() {
   const [streamingPayments, setStreamingPayments] = useState<StreamingPayment[]>([]);
   const [balance, setBalance] = useState<FilmmakerBalance | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requestingPayment, setRequestingPayment] = useState(false);
 
   useEffect(() => {
     if (profile?.id) {
@@ -275,20 +277,20 @@ export function FilmmakerDashboard() {
     const requestedAmount = Math.round(amount * 100) / 100;
 
     if (!profile?.id || isNaN(amount) || requestedAmount < 100 || requestedAmount > maxAmount) {
-      alert(`Please enter a valid amount between $100 and $${maxAmount.toFixed(2)}`);
+      toast.error(`Please enter a valid amount between $100 and $${maxAmount.toFixed(2)}`);
       return;
     }
 
-    // Check for existing pending or approved requests
     const hasPendingRequest = paymentRequests.some(
       req => req.status === 'pending' || req.status === 'approved'
     );
 
     if (hasPendingRequest) {
-      alert('You have a pending payment request. Please wait until it is paid before submitting another request.');
+      toast.error('You have a pending payment request. Please wait until it is paid before submitting another.');
       return;
     }
 
+    setRequestingPayment(true);
     try {
       const { error } = await supabase
         .from('payment_requests')
@@ -303,10 +305,11 @@ export function FilmmakerDashboard() {
       setShowRequestPayment(false);
       setRequestAmount('');
       fetchDashboardData();
-      alert('Payment request submitted successfully! Expect payment within 14 days from time of request.');
-    } catch (error) {
-      console.error('Error requesting payment:', error);
-      alert('Error submitting payment request. Please try again.');
+      toast.success('Payment request submitted! Expect payment within 14 days.');
+    } catch (error: any) {
+      toast.error(error.message || 'Error submitting payment request. Please try again.');
+    } finally {
+      setRequestingPayment(false);
     }
   };
 
@@ -514,7 +517,7 @@ export function FilmmakerDashboard() {
       {activeTab === 'financial' ? (
         <div className="space-y-6">
           <FinancialDashboard userId={profile?.id} userRole="filmmaker" />
-          {profile?.id && <FilmmakerPaymentHistory filmmakerI={profile.id} />}
+          {profile?.id && <FilmmakerPaymentHistory filmakerId={profile.id} />}
         </div>
       ) : activeTab === 'titles' ? (
         <div className="space-y-6">
@@ -973,6 +976,7 @@ export function FilmmakerDashboard() {
                   </Button>
                   <Button
                     onClick={handleRequestPayment}
+                    loading={requestingPayment}
                     className="flex-1"
                   >
                     Submit Request

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, CreditCard as Edit, Trash2, Calendar } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Card, CardContent, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { ConfirmModal } from './ConfirmModal';
 import { supabase, Payment, Content } from '../lib/supabase';
 
 interface PaymentHistoryAdminProps {
@@ -15,6 +17,8 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editData, setEditData] = useState({
     payment_date: '',
     gross_amount: '',
@@ -30,25 +34,17 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
   }, []);
 
   const fetchPayments = async () => {
+    if (!supabase) { setLoading(false); return; }
     try {
-      // Fetch all payments in batches to bypass Supabase 1000 row limit
       let allPayments: any[] = [];
       let from = 0;
       const batchSize = 1000;
       let hasMore = true;
 
-      console.log('Starting to fetch all payments...');
-
       while (hasMore) {
-        const { data, error } = await supabase!
+        const { data, error } = await supabase
           .from('payments')
-          .select(
-            `
-            *,
-            content:content_id(title_name),
-            filmmaker:filmmaker_id(first_name, last_name, email)
-          `
-          )
+          .select(`*, content:content_id(title_name), filmmaker:filmmaker_id(first_name, last_name, email)`)
           .order('payment_date', { ascending: false })
           .range(from, from + batchSize - 1);
 
@@ -56,7 +52,6 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
 
         if (data && data.length > 0) {
           allPayments = [...allPayments, ...data];
-          console.log(`Fetched batch: ${data.length} payments (total so far: ${allPayments.length})`);
           from += batchSize;
           hasMore = data.length === batchSize;
         } else {
@@ -64,11 +59,9 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
         }
       }
 
-      console.log(`✅ Fetched ALL ${allPayments.length} payments from database`);
       setPayments(allPayments);
 
-      // Fetch titles
-      const { data: titlesData, error: titlesError } = await supabase!.from('content').select('*');
+      const { data: titlesData, error: titlesError } = await supabase.from('content').select('*');
       if (titlesError) throw titlesError;
       setTitles(titlesData || []);
     } catch (error) {
@@ -91,10 +84,11 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
 
   const handleUpdatePayment = async () => {
     if (!editingPayment || !editData.payment_date || !editData.gross_amount) {
-      alert('Please fill in required fields');
+      toast.error('Please fill in required fields');
       return;
     }
 
+    setSavingPayment(true);
     try {
       const grossAmount = parseFloat(editData.gross_amount);
       const distributionFee = grossAmount * 0.25;
@@ -114,36 +108,33 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
 
       if (error) throw error;
 
-      alert('Payment updated successfully!');
+      toast.success('Payment updated successfully!');
       setShowEditModal(false);
       setEditingPayment(null);
       fetchPayments();
       onUpdate();
-    } catch (error) {
-      console.error('Error updating payment:', error);
-      alert(`Error updating payment: ${error.message}`);
+    } catch (error: any) {
+      toast.error(`Error updating payment: ${error.message}`);
+    } finally {
+      setSavingPayment(false);
     }
   };
 
-  const handleDeletePayment = async (paymentId: string) => {
-    if (!confirm('Are you sure you want to delete this payment? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeletePayment = (paymentId: string) => {
+    setConfirmDelete(paymentId);
+  };
 
+  const confirmDeletePayment = async () => {
+    if (!confirmDelete) return;
+    setConfirmDelete(null);
     try {
-      const { error } = await supabase!
-        .from('payments')
-        .delete()
-        .eq('id', paymentId);
-
+      const { error } = await supabase!.from('payments').delete().eq('id', confirmDelete);
       if (error) throw error;
-
-      alert('Payment deleted successfully!');
+      toast.success('Payment deleted successfully!');
       fetchPayments();
       onUpdate();
-    } catch (error) {
-      console.error('Error deleting payment:', error);
-      alert(`Error deleting payment: ${error.message}`);
+    } catch (error: any) {
+      toast.error(`Error deleting payment: ${error.message}`);
     }
   };
 
@@ -448,11 +439,21 @@ export function PaymentHistoryAdmin({ onUpdate }: PaymentHistoryAdminProps) {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleUpdatePayment}>Update Payment</Button>
+                <Button onClick={handleUpdatePayment} loading={savingPayment}>Update Payment</Button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Payment"
+          message="Are you sure you want to delete this payment? This action cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={confirmDeletePayment}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </>
   );
