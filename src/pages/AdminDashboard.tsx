@@ -624,8 +624,6 @@ export function AdminDashboard() {
           transaction_reference: transactionRef || null,
           admin_notes: adminMemo || null,
           date_paid: new Date().toISOString(),
-          approved_by: profile?.id,
-          approved_at: new Date().toISOString(),
         })
         .eq('id', approvingRequest.id);
 
