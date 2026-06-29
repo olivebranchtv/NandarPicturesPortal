@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Film, DollarSign, Calendar, Hash, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Film, DollarSign, Calendar, Hash, TrendingUp, ChevronDown, ChevronUp, Pencil, ExternalLink, Clock, Star, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader } from './ui/Card';
-import { supabase } from '../lib/supabase';
+import { supabase, Content } from '../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { TitleMetadataModal } from './TitleMetadataModal';
 
 interface ChannelRevenue {
   channel: string;
@@ -20,6 +21,15 @@ interface TitleMetrics {
   latestPaymentDate: string | null;
   balanceDue: number;
   channelBreakdown: ChannelRevenue[];
+  // metadata
+  description?: string;
+  genre?: string;
+  release_date?: string;
+  duration_minutes?: number;
+  rating?: string;
+  cover_art_url?: string;
+  cast_list?: string;
+  trailer_url?: string;
 }
 
 interface TitleCardsProps {
@@ -30,6 +40,7 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
   const [titles, setTitles] = useState<TitleMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
+  const [editingTitle, setEditingTitle] = useState<Content | null>(null);
 
   const toggleChannelExpansion = (titleId: string) => {
     setExpandedChannels(prev => {
@@ -131,6 +142,14 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
           latestPaymentDate,
           balanceDue,
           channelBreakdown: channelBreakdown.sort((a, b) => b.revenue - a.revenue),
+          description: title.description,
+          genre: title.genre,
+          release_date: title.release_date,
+          duration_minutes: title.duration_minutes,
+          rating: title.rating,
+          cover_art_url: title.cover_art_url,
+          cast_list: title.cast_list,
+          trailer_url: title.trailer_url,
         };
       });
 
@@ -168,20 +187,98 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
   }
 
   return (
+    <>
+    {editingTitle && (
+      <TitleMetadataModal
+        title={editingTitle}
+        onClose={() => setEditingTitle(null)}
+        onSaved={(updated) => {
+          setTitles(prev => prev.map(t =>
+            t.id === editingTitle.id ? { ...t, ...updated } : t
+          ));
+        }}
+      />
+    )}
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {titles.map((title) => (
-        <Card key={title.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-          <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold truncate">{title.title_name}</h3>
-                <p className="text-sm text-blue-100 capitalize">{title.content_type}</p>
+        <Card key={title.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+          {/* Cover art / header */}
+          <div className="relative h-48 bg-gradient-to-br from-slate-800 to-blue-900 flex-shrink-0">
+            {title.cover_art_url ? (
+              <img
+                src={title.cover_art_url}
+                alt={title.title_name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Film className="h-16 w-16 text-white/20" />
               </div>
-              <Film className="h-6 w-6 flex-shrink-0 ml-2" />
+            )}
+            {/* Gradient overlay for text legibility */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+            {/* Edit button */}
+            <button
+              onClick={() => setEditingTitle(title as unknown as Content)}
+              className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/90 hover:bg-white rounded-lg text-xs font-semibold text-gray-800 shadow transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit Info
+            </button>
+
+            {/* Title + type at bottom of hero */}
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <h3 className="text-base font-bold text-white leading-snug line-clamp-2">{title.title_name}</h3>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs text-blue-200 capitalize">{title.content_type}</span>
+                {title.rating && (
+                  <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded font-medium">{title.rating}</span>
+                )}
+                {title.genre && (
+                  <span className="text-xs text-white/70">{title.genre}</span>
+                )}
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-4">
+          </div>
+          <CardContent className="p-4 flex-1 flex flex-col">
+            {/* Metadata strip */}
+            {(title.duration_minutes || title.release_date || title.cast_list || title.trailer_url) && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3 pb-3 border-b border-gray-100 text-xs text-gray-500">
+                {title.duration_minutes && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />{title.duration_minutes} min
+                  </span>
+                )}
+                {title.release_date && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />{new Date(title.release_date).getFullYear()}
+                  </span>
+                )}
+                {title.cast_list && (
+                  <span className="flex items-center gap-1 truncate max-w-[160px]">
+                    <Users className="h-3 w-3 flex-shrink-0" />{title.cast_list.split(',').slice(0, 2).join(', ')}
+                  </span>
+                )}
+                {title.trailer_url && (
+                  <a
+                    href={title.trailer_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    <ExternalLink className="h-3 w-3" />Trailer
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Synopsis snippet */}
+            {title.description && (
+              <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-3">{title.description}</p>
+            )}
+
+            <div className="space-y-4 flex-1">
               {/* Total Revenue */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -314,5 +411,6 @@ export function TitleCards({ filmakerId }: TitleCardsProps) {
         </Card>
       ))}
     </div>
+    </>
   );
 }

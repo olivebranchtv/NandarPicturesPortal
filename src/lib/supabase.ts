@@ -51,6 +51,9 @@ export interface Content {
   release_date?: string;
   duration_minutes?: number;
   rating?: string;
+  cover_art_url?: string;
+  cast_list?: string;
+  trailer_url?: string;
   created_at: string;
   updated_at: string;
   title_distribution_settings?: TitleDistributionSettings[];
