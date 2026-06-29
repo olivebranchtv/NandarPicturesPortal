@@ -120,47 +120,30 @@ export function FilmmakerDashboard() {
       setBalance(balance);
 
       const titleIds = filmmakertitles.map(t => t.id);
-      let paymentsTableData: any[] = [];
-      let paymentsTableError = null;
+      let streamingPaymentsData: any[] = [];
+      let streamingGrossTotal = 0;
+      let streamingNetTotal = 0;
 
       if (titleIds.length > 0) {
-        let from = 0;
-        const batchSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data, error } = await supabase
+        // Aggregate query for totals — avoids downloading thousands of rows
+        const [aggRes, recentRes] = await Promise.all([
+          supabase
             .from('payments')
-            .select(`
-              *,
-              content(title_name)
-            `)
+            .select('gross_amount.sum(), net_amount.sum()')
+            .in('content_id', titleIds),
+          // Fetch only recent rows for the payment history display
+          supabase
+            .from('payments')
+            .select('*, content(title_name)')
             .in('content_id', titleIds)
             .order('payment_date', { ascending: false })
-            .range(from, from + batchSize - 1);
+            .limit(300),
+        ]);
 
-          if (error) {
-            paymentsTableError = error;
-            break;
-          }
+        streamingGrossTotal = (aggRes.data?.[0] as any)?.gross_amount?.sum ?? 0;
+        streamingNetTotal = (aggRes.data?.[0] as any)?.net_amount?.sum ?? 0;
 
-          if (data && data.length > 0) {
-            paymentsTableData = [...paymentsTableData, ...data];
-            from += batchSize;
-            hasMore = data.length === batchSize;
-          } else {
-            hasMore = false;
-          }
-        }
-      }
-
-      let streamingPaymentsData: any[] = [];
-
-      if (paymentsTableError) {
-        console.error('Error fetching payments:', paymentsTableError);
-      } else {
-        // Transform payments table data to match streaming_payments format
-        streamingPaymentsData = (paymentsTableData || []).map(payment => ({
+        streamingPaymentsData = (recentRes.data ?? []).map(payment => ({
           id: payment.id,
           title_id: payment.content_id,
           platform: payment.channel || 'Payment',
@@ -174,8 +157,8 @@ export function FilmmakerDashboard() {
           updated_at: payment.updated_at,
           content: {
             title_name: payment.content?.title_name || payment.title_name || 'Unknown',
-            filmmaker_id: payment.filmmaker_id
-          }
+            filmmaker_id: payment.filmmaker_id,
+          },
         }));
       }
 
@@ -222,18 +205,13 @@ export function FilmmakerDashboard() {
         };
       }, { historicalEarned: 0, historicalPaid: 0, historicalNet: 0, historicalExpenses: 0 });
 
-      const streamingTotals = streamingPaymentsData.reduce((acc, payment) => {
-        const grossAmount = payment.gross_amount || 0;
-        const netAmount = payment.net_amount || 0;
-        const expenses = grossAmount > 0 ? (grossAmount - netAmount) : 0;
-
-        return {
-          streamingEarned: acc.streamingEarned + (grossAmount > 0 ? grossAmount : 0),
-          streamingNet: acc.streamingNet + netAmount, // Include both positive and negative
-          streamingPaid: acc.streamingPaid + (netAmount < 0 ? Math.abs(netAmount) : 0),
-          streamingExpenses: acc.streamingExpenses + expenses
-        };
-      }, { streamingEarned: 0, streamingNet: 0, streamingPaid: 0, streamingExpenses: 0 });
+      // Use server-side aggregate totals — not the limited display rows
+      const streamingTotals = {
+        streamingEarned: streamingGrossTotal > 0 ? streamingGrossTotal : 0,
+        streamingNet: streamingNetTotal,
+        streamingPaid: streamingNetTotal < 0 ? Math.abs(streamingNetTotal) : 0,
+        streamingExpenses: streamingGrossTotal > streamingNetTotal ? streamingGrossTotal - streamingNetTotal : 0,
+      };
 
       const { data: requestsData, error: requestsError } = await supabase
         .from('payment_requests')
