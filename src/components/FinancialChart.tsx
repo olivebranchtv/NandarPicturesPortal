@@ -14,10 +14,19 @@ interface FinancialChartProps {
   data: ChartData[];
   chartType: 'bar' | 'line' | 'stacked';
   height?: number;
+  priorYearData?: ChartData[];
+  showYoY?: boolean;
 }
 
-export function FinancialChart({ data, chartType, height = 400 }: FinancialChartProps) {
+export function FinancialChart({ data, chartType, height = 400, priorYearData, showYoY = false }: FinancialChartProps) {
   const formatCurrency = (value: number) => `$${value.toLocaleString()}`;
+
+  // Merge prior year data onto each current-year period by index
+  const mergedData = data.map((d, i) => ({
+    ...d,
+    priorRevenue: priorYearData?.[i]?.revenue ?? null,
+    priorNet: priorYearData?.[i]?.net ?? null,
+  }));
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -38,36 +47,60 @@ export function FinancialChart({ data, chartType, height = 400 }: FinancialChart
   if (chartType === 'line') {
     return (
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={data}>
+        <LineChart data={mergedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="period" />
           <YAxis tickFormatter={formatCurrency} />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="revenue" 
-            stroke="#10B981" 
+          <Line
+            type="monotone"
+            dataKey="revenue"
+            stroke="#10B981"
             strokeWidth={3}
             name="Revenue"
             dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
           />
-          <Line 
-            type="monotone" 
-            dataKey="expenses" 
-            stroke="#EF4444" 
+          <Line
+            type="monotone"
+            dataKey="expenses"
+            stroke="#EF4444"
             strokeWidth={3}
             name="Expenses"
             dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
           />
-          <Line 
-            type="monotone" 
-            dataKey="net" 
-            stroke="#3B82F6" 
+          <Line
+            type="monotone"
+            dataKey="net"
+            stroke="#3B82F6"
             strokeWidth={3}
             name="Net Income"
             dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
           />
+          {showYoY && priorYearData && (
+            <>
+              <Line
+                type="monotone"
+                dataKey="priorRevenue"
+                stroke="#10B981"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                name="Prior Year Revenue"
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="priorNet"
+                stroke="#3B82F6"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                name="Prior Year Net"
+                dot={false}
+                connectNulls
+              />
+            </>
+          )}
         </LineChart>
       </ResponsiveContainer>
     );
@@ -76,7 +109,7 @@ export function FinancialChart({ data, chartType, height = 400 }: FinancialChart
   if (chartType === 'stacked') {
     return (
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data}>
+        <BarChart data={mergedData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="period" />
           <YAxis tickFormatter={formatCurrency} />
@@ -91,7 +124,7 @@ export function FinancialChart({ data, chartType, height = 400 }: FinancialChart
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data}>
+      <BarChart data={mergedData}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="period" />
         <YAxis tickFormatter={formatCurrency} />

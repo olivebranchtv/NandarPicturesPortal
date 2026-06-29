@@ -20,6 +20,8 @@ import { FilmmakerUserManagement } from '../components/FilmmakerUserManagement';
 import { TitleReassignment } from '../components/TitleReassignment';
 import { PlatformSplitEditor, SplitRow } from '../components/PlatformSplitEditor';
 import { AuditLog } from '../components/AuditLog';
+import { TopTitlesLeaderboard } from '../components/TopTitlesLeaderboard';
+import { FilmmakerSummaryReport } from '../components/FilmmakerSummaryReport';
 
 interface AdminStats {
   totalUsers: number;
@@ -1392,6 +1394,12 @@ export function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* Top 10 Leaderboard + Filmmaker Summary */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+            <TopTitlesLeaderboard />
+            <FilmmakerSummaryReport />
           </div>
 
           {/* All Titles Management */}

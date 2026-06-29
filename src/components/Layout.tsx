@@ -3,6 +3,7 @@ import { Film, LogOut, User, Settings } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from './ui/Button';
 import { ProfileSettings } from './ProfileSettings';
+import { NotificationBell } from './NotificationBell';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,11 +29,11 @@ export function Layout({ children }: LayoutProps) {
               </span>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
+              <div className="hidden sm:flex items-center space-x-2">
                 <User className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-700">
-                  {profile?.first_name && profile?.last_name 
+                  {profile?.first_name && profile?.last_name
                     ? `${profile.first_name} ${profile.last_name}`
                     : profile?.email
                   }
@@ -41,7 +42,9 @@ export function Layout({ children }: LayoutProps) {
                   {profile?.role}
                 </span>
               </div>
-              
+
+              <NotificationBell />
+
               <Button
                 variant="secondary"
                 size="sm"
@@ -49,9 +52,9 @@ export function Layout({ children }: LayoutProps) {
                 className="flex items-center space-x-1"
               >
                 <Settings className="h-4 w-4" />
-                <span>Profile</span>
+                <span className="hidden sm:inline">Profile</span>
               </Button>
-              
+
               <Button
                 variant="secondary"
                 size="sm"
@@ -59,7 +62,7 @@ export function Layout({ children }: LayoutProps) {
                 className="flex items-center space-x-1"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </Button>
             </div>
           </div>
