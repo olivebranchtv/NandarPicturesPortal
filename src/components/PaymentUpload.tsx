@@ -130,7 +130,6 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
 
           const paymentRecord = {
             content_id: row.matchedContentId,
-            filmmaker_id: content?.filmmaker_id,
             payment_date: row.paymentDate,
             gross_amount: grossAmount,
             distribution_fee: distributionFee,
@@ -138,7 +137,6 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
             channel: row.channel || null,
             title_name: row.titleName,
             payment_method: 'excel_upload' as const,
-            created_by: adminId,
           };
 
           console.log('🔍 MATCHED PAYMENT RECORD TO INSERT:', {
@@ -210,7 +208,6 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
 
             const paymentRecord = {
               content_id: allCreatedTitles[index].id,
-              filmmaker_id: null,
               payment_date: row.paymentDate,
               gross_amount: grossAmount,
               distribution_fee: distributionFee,
@@ -218,7 +215,6 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
               channel: row.channel || null,
               title_name: row.titleName,
               payment_method: 'excel_upload' as const,
-              created_by: adminId,
             };
 
             console.log('🔍 UNMATCHED PAYMENT RECORD TO INSERT:', {
