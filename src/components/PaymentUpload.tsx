@@ -130,7 +130,6 @@ export function PaymentUpload({ onUploadComplete, onClose, titles, adminId }: Pa
 
           const paymentRecord = {
             content_id: row.matchedContentId,
-            filmmaker_id: content?.filmmaker_id || null,
             payment_date: row.paymentDate,
             gross_amount: grossAmount,
             distribution_fee: distributionFee,
