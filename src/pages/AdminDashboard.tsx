@@ -146,59 +146,68 @@ export function AdminDashboard() {
   }, [profile]);
 
   const fetchDashboardData = async () => {
+    // Run all queries in parallel so one failure doesn't zero out everything
+    const [usersRes, titlesRes, requestsRes] = await Promise.allSettled([
+      supabase!.from('users').select('*').order('created_at', { ascending: false }),
+      supabase!.from('content').select(`
+        *,
+        filmmaker:users!content_filmmaker_id_fkey(first_name, last_name, email),
+        title_distribution_settings(*)
+      `).order('title_name', { ascending: true }),
+      // Try with approver join first; if the FK doesn't exist on this DB it will fail gracefully
+      supabase!.from('payment_requests').select(`
+        *,
+        filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email),
+        approver:users!payment_requests_approved_by_fkey(first_name, last_name, email)
+      `).order('requested_at', { ascending: false }),
+    ]);
+
+    // --- Users ---
+    const usersData = usersRes.status === 'fulfilled' && !usersRes.value.error
+      ? usersRes.value.data ?? []
+      : [];
+    if (usersRes.status === 'rejected' || (usersRes.status === 'fulfilled' && usersRes.value.error)) {
+      console.error('Users fetch error:', usersRes.status === 'fulfilled' ? usersRes.value.error : usersRes.reason);
+    }
+    const filmmakersData = usersData.filter((u: any) => u.role === 'filmmaker');
+    setFilmmakers(filmmakersData);
+
+    // --- Titles ---
+    const titlesData = titlesRes.status === 'fulfilled' && !titlesRes.value.error
+      ? titlesRes.value.data ?? []
+      : [];
+    if (titlesRes.status === 'rejected' || (titlesRes.status === 'fulfilled' && titlesRes.value.error)) {
+      console.error('Titles fetch error:', titlesRes.status === 'fulfilled' ? titlesRes.value.error : titlesRes.reason);
+    }
+    setTitles(titlesData);
+
+    // --- Payment requests (fall back to simpler query if FK join fails) ---
+    let requestsData: any[] = [];
+    if (requestsRes.status === 'fulfilled' && !requestsRes.value.error) {
+      requestsData = requestsRes.value.data ?? [];
+    } else {
+      console.warn('Payment requests with approver join failed, falling back to simple query');
+      const fallback = await supabase!.from('payment_requests').select(`
+        *,
+        filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email)
+      `).order('requested_at', { ascending: false });
+      requestsData = fallback.data ?? [];
+    }
+    setPaymentRequests(requestsData);
+
+    // --- Payments (batch fetch) ---
+    let allPayments: any[] = [];
     try {
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (usersError) throw usersError;
-
-      const filmmakersData = usersData?.filter(user => user.role === 'filmmaker') || [];
-      setFilmmakers(filmmakersData);
-
-      const { data: titlesData, error: titlesError } = await supabase
-        .from('content')
-        .select(`
-          *,
-          filmmaker:users!content_filmmaker_id_fkey(first_name, last_name, email),
-          title_distribution_settings(*)
-        `)
-        .order('title_name', { ascending: true });
-
-      if (titlesError) throw titlesError;
-      setTitles(titlesData || []);
-
-      const { data: requestsData, error: requestsError } = await supabase
-        .from('payment_requests')
-        .select(`
-          *,
-          filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email),
-          approver:users!payment_requests_approved_by_fkey(first_name, last_name, email)
-        `)
-        .order('requested_at', { ascending: false });
-
-      if (requestsError) throw requestsError;
-      setPaymentRequests(requestsData || []);
-
-      // Fetch payments from the payments table in batches
-      let allPayments: any[] = [];
       let from = 0;
       const batchSize = 1000;
       let hasMore = true;
-
       while (hasMore) {
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from('payments')
-          .select(`
-            *,
-            content(title_name, filmmaker_id)
-          `)
+          .select('*, content(title_name, filmmaker_id)')
           .order('payment_date', { ascending: false })
           .range(from, from + batchSize - 1);
-
-        if (error) throw error;
-
+        if (error) { console.error('Payments batch error:', error); break; }
         if (data && data.length > 0) {
           allPayments = [...allPayments, ...data];
           from += batchSize;
@@ -207,65 +216,50 @@ export function AdminDashboard() {
           hasMore = false;
         }
       }
-
-      const paymentsData = allPayments;
-
-      // Transform payments to match StreamingPayment format
-      const transformedPayments = (paymentsData || []).map(p => ({
-        id: p.id,
-        title_id: p.content_id,
-        platform: p.channel || 'Payment',
-        outlet: null,
-        payment_date: p.payment_date,
-        gross_amount: p.gross_amount || 0,
-        net_amount: p.net_amount || 0,
-        distribution_percentage: p.distribution_fee || 0,
-        notes: p.notes,
-        created_at: p.created_at,
-        updated_at: p.updated_at,
-        content: p.content,
-        filmmaker_id: p.filmmaker_id
-      }));
-
-      setStreamingPayments(transformedPayments);
-
-      // Calculate stats including historical data from content table
-      // Only count positive amounts from payments table (revenue in, not withdrawals)
-      const revenueFromPayments = (paymentsData || [])
-        .filter(payment => (payment.gross_amount || 0) > 0)
-        .reduce((sum, payment) => sum + (payment.gross_amount || 0), 0);
-
-      // Add historical gross amounts from content table
-      const historicalRevenue = (titlesData || []).reduce((sum, title) => sum + (title.previous_gross_amount || 0), 0);
-      const totalRevenue = revenueFromPayments + historicalRevenue;
-
-      // Calculate total paid including historical payments
-      const paidViaRequests = (requestsData || [])
-        .filter(req => req.status === 'paid')
-        .reduce((sum, req) => sum + (req.amount_approved || req.amount_requested || 0), 0);
-
-      const historicalPaid = (titlesData || []).reduce((sum, title) => sum + (title.previous_amount_paid || 0), 0);
-      const totalPaidToFilmmakers = paidViaRequests + historicalPaid;
-
-      const companyProfit = totalRevenue * 0.25;
-      const pendingRequests = (requestsData || []).filter(req => req.status === 'pending').length;
-
-      const calculatedStats = {
-        totalUsers: filmmakersData.length,
-        totalTitles: titlesData?.length || 0,
-        totalRevenue,
-        totalPaidToFilmmakers,
-        companyProfit,
-        pendingRequests,
-      };
-
-      setStats(calculatedStats);
-
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.error('Payments fetch error:', e);
     }
+
+    const transformedPayments = allPayments.map(p => ({
+      id: p.id,
+      title_id: p.content_id,
+      platform: p.channel || 'Payment',
+      outlet: null,
+      payment_date: p.payment_date,
+      gross_amount: p.gross_amount || 0,
+      net_amount: p.net_amount || 0,
+      distribution_percentage: p.distribution_fee || 0,
+      notes: p.notes,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      content: p.content,
+      filmmaker_id: p.filmmaker_id,
+    }));
+    setStreamingPayments(transformedPayments);
+
+    // --- Compute stats ---
+    const revenueFromPayments = allPayments
+      .filter(p => (p.gross_amount || 0) > 0)
+      .reduce((sum, p) => sum + (p.gross_amount || 0), 0);
+    const historicalRevenue = titlesData.reduce((sum: number, t: any) => sum + (t.previous_gross_amount || 0), 0);
+    const totalRevenue = revenueFromPayments + historicalRevenue;
+
+    const paidViaRequests = requestsData
+      .filter((r: any) => r.status === 'paid')
+      .reduce((sum: number, r: any) => sum + (r.amount_approved || r.amount_requested || 0), 0);
+    const historicalPaid = titlesData.reduce((sum: number, t: any) => sum + (t.previous_amount_paid || 0), 0);
+    const totalPaidToFilmmakers = paidViaRequests + historicalPaid;
+
+    setStats({
+      totalUsers: filmmakersData.length,
+      totalTitles: titlesData.length,
+      totalRevenue,
+      totalPaidToFilmmakers,
+      companyProfit: totalRevenue * 0.25,
+      pendingRequests: requestsData.filter((r: any) => r.status === 'pending').length,
+    });
+
+    setLoading(false);
   };
 
   const handleCreateFilmmaker = async () => {
