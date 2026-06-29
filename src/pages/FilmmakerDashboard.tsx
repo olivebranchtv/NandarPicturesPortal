@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { FinancialDashboard } from '../components/FinancialDashboard';
 import { FilmmakerPaymentHistory } from '../components/FilmmakerPaymentHistory';
 import { TitleCards } from '../components/TitleCards';
+import { RoyaltyStatement } from '../components/RoyaltyStatement';
 
 interface FilmmakerStats {
   totalTitles: number;
@@ -382,14 +383,14 @@ export function FilmmakerDashboard() {
 
   const StatCard = ({ icon: Icon, title, value, color }: any) => (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center">
-          <div className={`p-2 rounded-lg ${color}`}>
-            <Icon className="h-6 w-6 text-white" />
+      <CardContent className="p-3 sm:p-6">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${color}`}>
+            <Icon className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
           </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-gray-500 truncate">{title}</p>
+            <p className="text-base sm:text-2xl font-bold text-gray-900 truncate">{value}</p>
           </div>
         </div>
       </CardContent>
@@ -448,36 +449,42 @@ export function FilmmakerDashboard() {
     .sort((a, b) => b.gross - a.gross);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Filmmaker Dashboard</h1>
-        <div className="flex items-center space-x-4">
-          {/* Profile and Sign Out Buttons */}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowProfileModal(true)}
-            className="flex items-center space-x-2"
-          >
-            <Settings className="h-4 w-4" />
-            <span>Edit Profile</span>
-          </Button>
-          
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleSignOut}
-            className="flex items-center space-x-2"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
-          </Button>
-          
-          {/* Tab Navigation */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header: title row + tabs row stacked */}
+      <div className="space-y-3">
+        {/* Row 1: title + action buttons */}
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900 truncate">
+            Filmmaker Dashboard
+          </h1>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowProfileModal(true)}
+              className="flex items-center gap-1"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Edit Profile</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSignOut}
+              className="flex items-center gap-1"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Row 2: tabs + welcome text */}
+        <div className="flex items-center justify-between gap-2">
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'overview'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -487,7 +494,7 @@ export function FilmmakerDashboard() {
             </button>
             <button
               onClick={() => setActiveTab('titles')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'titles'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -497,7 +504,7 @@ export function FilmmakerDashboard() {
             </button>
             <button
               onClick={() => setActiveTab('financial')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'financial'
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -506,8 +513,7 @@ export function FilmmakerDashboard() {
               Financial
             </button>
           </div>
-          
-          <div className="text-sm text-gray-500">
+          <div className="hidden sm:block text-sm text-gray-500 truncate">
             Welcome back, {profile?.first_name || 'Filmmaker'}!
           </div>
         </div>
@@ -530,7 +536,7 @@ export function FilmmakerDashboard() {
       ) : (
         <>
           {/* Overview Tab Content - All existing functionality */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-6 sm:mb-8">
             <StatCard
               icon={Film}
               title="My Titles"
@@ -563,9 +569,9 @@ export function FilmmakerDashboard() {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Revenue Chart */}
-            <Card>
+            <Card className="lg:col-span-1">
               <CardHeader>
                 <h3 className="text-lg font-semibold flex items-center">
                   <TrendingUp className="h-5 w-5 mr-2" />
@@ -603,6 +609,9 @@ export function FilmmakerDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Royalty Statement */}
+            {profile && <RoyaltyStatement filmmaker={profile} />}
 
             {/* Payment Request Section */}
             <Card>
@@ -660,61 +669,91 @@ export function FilmmakerDashboard() {
             </CardHeader>
             <CardContent>
               {streamingPayments.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Title
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Platform
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Gross Revenue
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Your Share
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {streamingPayments.map((payment: any) => {
-                        const isWithdrawal = payment.net_amount < 0;
-                        return (
-                          <tr key={payment.id} className={isWithdrawal ? 'bg-red-50' : ''}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <>
+                  {/* Mobile card list */}
+                  <div className="sm:hidden space-y-3">
+                    {streamingPayments.map((payment: any) => {
+                      const isWithdrawal = payment.net_amount < 0;
+                      return (
+                        <div
+                          key={payment.id}
+                          className={`rounded-lg border p-3 ${isWithdrawal ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="text-sm font-medium text-gray-900 leading-snug">
                               {payment.content.title_name}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                isWithdrawal
-                                  ? 'bg-red-100 text-red-800'
-                                  : payment.platform === 'Historical Data'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {isWithdrawal ? '💸 Payment Out' : payment.platform}
+                            </p>
+                            <span className={`flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              isWithdrawal
+                                ? 'bg-red-100 text-red-800'
+                                : payment.platform === 'Historical Data'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {isWithdrawal ? 'Payment Out' : payment.platform}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{new Date(payment.payment_date).toLocaleDateString()}</span>
+                            <div className="flex items-center gap-3">
+                              <span>Gross: {isWithdrawal ? '-' : ''}${Math.abs(payment.gross_amount).toLocaleString()}</span>
+                              <span className={`font-semibold ${isWithdrawal ? 'text-red-600' : 'text-green-700'}`}>
+                                Net: {isWithdrawal ? '-' : ''}${Math.abs(payment.net_amount).toLocaleString()}
                               </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(payment.payment_date).toLocaleDateString()}
-                            </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${isWithdrawal ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                              {isWithdrawal ? '-' : ''}${Math.abs(payment.gross_amount).toLocaleString()}
-                            </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${isWithdrawal ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                              {isWithdrawal ? '-' : ''}${Math.abs(payment.net_amount).toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Revenue</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Your Share</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {streamingPayments.map((payment: any) => {
+                          const isWithdrawal = payment.net_amount < 0;
+                          return (
+                            <tr key={payment.id} className={isWithdrawal ? 'bg-red-50' : ''}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {payment.content.title_name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  isWithdrawal
+                                    ? 'bg-red-100 text-red-800'
+                                    : payment.platform === 'Historical Data'
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {isWithdrawal ? '💸 Payment Out' : payment.platform}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(payment.payment_date).toLocaleDateString()}
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${isWithdrawal ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                {isWithdrawal ? '-' : ''}${Math.abs(payment.gross_amount).toLocaleString()}
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${isWithdrawal ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                {isWithdrawal ? '-' : ''}${Math.abs(payment.net_amount).toLocaleString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-12">
                   <Film className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -741,25 +780,23 @@ export function FilmmakerDashboard() {
               <CardContent>
                 <div className="space-y-3">
                   {paymentRequests.slice(0, 5).map((request) => (
-                    <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
+                    <div key={request.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 rounded-lg">
+                      <div className="min-w-0">
                         <p className="font-medium text-gray-900">
                           ${request.amount_requested.toLocaleString()}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs sm:text-sm text-gray-500">
                           {new Date(request.requested_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {request.status}
-                        </span>
-                      </div>
+                      <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                        request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {request.status}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -949,6 +986,59 @@ export function FilmmakerDashboard() {
                 </div>
               </div>
               <div className="space-y-4">
+                {/* Payment method summary */}
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Payment will be sent to
+                    </p>
+                    <button
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      onClick={() => {
+                        setShowRequestPayment(false);
+                        setRequestAmount('');
+                        setShowProfileModal(true);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  {profile?.paypal_email || profile?.venmo_username ? (
+                    <div className="space-y-1.5">
+                      {profile?.paypal_email && (
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                            PayPal
+                          </span>
+                          <span className="text-sm text-gray-800">{profile.paypal_email}</span>
+                        </div>
+                      )}
+                      {profile?.venmo_username && (
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                            Venmo
+                          </span>
+                          <span className="text-sm text-gray-800">@{profile.venmo_username}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-amber-700 font-medium">No payment method saved.</span>
+                      <button
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+                        onClick={() => {
+                          setShowRequestPayment(false);
+                          setRequestAmount('');
+                          setShowProfileModal(true);
+                        }}
+                      >
+                        Add one now
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <Input
                   label="Request Amount"
                   type="number"
