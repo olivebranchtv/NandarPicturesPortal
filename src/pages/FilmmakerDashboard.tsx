@@ -245,15 +245,21 @@ export function FilmmakerDashboard() {
       setPaymentRequests(requestsData || []);
 
       // Calculate final stats
-      // For display purposes: show total earned including historical
       const totalEarnedWithHistory = currentEarned + historicalTotals.historicalEarned + streamingTotals.streamingEarned;
-      const totalPaidWithHistory = historicalTotals.historicalPaid + streamingTotals.streamingPaid;
       const totalExpenses = historicalTotals.historicalExpenses + streamingTotals.streamingExpenses;
 
-      // IMPORTANT: Available balance should ONLY come from payments table
-      // Historical data is already settled (previous_balance_due = 0)
-      // streamingNet already includes both positive revenue and negative withdrawals
-      const availableBalance = Math.max(0, streamingTotals.streamingNet);
+      // Actual cash paid out via approved payment requests
+      const paidViaRequests = (requestsData ?? [])
+        .filter((r: any) => r.status === 'paid')
+        .reduce((sum: number, r: any) => sum + (r.amount_approved ?? r.amount_requested ?? 0), 0);
+
+      const totalPaidWithHistory = historicalTotals.historicalPaid + streamingTotals.streamingPaid + paidViaRequests;
+
+      // Available = net streaming revenue minus everything already paid out
+      const availableBalance = Math.max(
+        0,
+        streamingTotals.streamingNet - paidViaRequests - historicalTotals.historicalPaid
+      );
 
       const finalStats = {
         totalTitles: filmmakertitles.length,

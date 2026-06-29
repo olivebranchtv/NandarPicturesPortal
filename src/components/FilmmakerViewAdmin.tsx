@@ -103,13 +103,16 @@ export function FilmmakerViewAdmin({ filmmaker, onClose }: FilmmakerViewAdminPro
         0
       );
 
-      const balanceRes = await supabase!
-        .from('filmmaker_balances')
-        .select('*')
+      // Total paid = sum of all payment_requests marked as paid for this filmmaker
+      const paidRequestsRes = await supabase!
+        .from('payment_requests')
+        .select('amount_approved, amount_requested')
         .eq('filmmaker_id', filmmaker.id)
-        .maybeSingle();
+        .eq('status', 'paid');
 
-      const totalPaid = balanceRes.data?.total_paid || 0;
+      const totalPaid = (paidRequestsRes.data ?? []).reduce(
+        (sum, r) => sum + (r.amount_approved ?? r.amount_requested ?? 0), 0
+      );
 
       setStats({
         totalTitles: titlesRes.data?.length || 0,
