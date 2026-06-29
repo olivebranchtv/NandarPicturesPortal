@@ -72,9 +72,16 @@ export interface PaymentRequest {
   amount_approved?: number;
   payment_method_used?: string;
   date_paid?: string;
+  approved_by?: string;
+  approved_at?: string;
   requested_at: string;
   updated_at: string;
   filmmaker?: {
+    first_name?: string;
+    last_name?: string;
+    email: string;
+  };
+  approver?: {
     first_name?: string;
     last_name?: string;
     email: string;

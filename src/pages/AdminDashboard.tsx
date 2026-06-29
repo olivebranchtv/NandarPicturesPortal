@@ -19,6 +19,7 @@ import { AdminUserManagement } from '../components/AdminUserManagement';
 import { FilmmakerUserManagement } from '../components/FilmmakerUserManagement';
 import { TitleReassignment } from '../components/TitleReassignment';
 import { PlatformSplitEditor, SplitRow } from '../components/PlatformSplitEditor';
+import { AuditLog } from '../components/AuditLog';
 
 interface AdminStats {
   totalUsers: number;
@@ -37,7 +38,7 @@ interface CreateFilmmakerData {
 
 export function AdminDashboard() {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests' | 'admins'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'titles' | 'financial' | 'payments' | 'filmmakers' | 'requests' | 'audit' | 'admins'>('overview');
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalTitles: 0,
@@ -169,7 +170,8 @@ export function AdminDashboard() {
         .from('payment_requests')
         .select(`
           *,
-          filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email)
+          filmmaker:users!payment_requests_filmmaker_id_fkey(first_name, last_name, email),
+          approver:users!payment_requests_approved_by_fkey(first_name, last_name, email)
         `)
         .order('requested_at', { ascending: false });
 
@@ -574,6 +576,7 @@ export function AdminDashboard() {
           status: 'approved',
           amount_approved: approvedAmount,
           approved_by: profile?.id,
+          approved_at: new Date().toISOString(),
         })
         .eq('id', requestId);
 
@@ -598,6 +601,7 @@ export function AdminDashboard() {
           payment_method_used: paymentMethod,
           date_paid: new Date().toISOString(),
           approved_by: profile?.id,
+          approved_at: new Date().toISOString(),
         })
         .eq('id', requestId);
 
@@ -714,6 +718,16 @@ export function AdminDashboard() {
               }`}
             >
               Requests
+            </button>
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'audit'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Audit Log
             </button>
             <button
               onClick={() => setActiveTab('admins')}
@@ -1181,7 +1195,7 @@ export function AdminDashboard() {
                                       onConfirm: () => {
                                         setConfirmModal(null);
                                         supabase?.from('payment_requests')
-                                          .update({ status: 'rejected', approved_by: profile?.id })
+                                          .update({ status: 'rejected', approved_by: profile?.id, approved_at: new Date().toISOString() })
                                           .eq('id', request.id)
                                           .then(() => { toast.success('Request rejected.'); fetchDashboardData(); });
                                       },
@@ -1217,6 +1231,11 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+      )}
+      {activeTab === 'audit' && (
+        <div key="audit-tab">
+          <AuditLog />
+        </div>
       )}
       {activeTab === 'admins' && (
         <div key="admins-tab">
