@@ -18,19 +18,26 @@ export interface ParseResult {
 function parseDate(dateValue: any): string {
   if (!dateValue) return '';
 
+  // XLSX sometimes returns a JS Date object directly
+  if (dateValue instanceof Date) {
+    return isNaN(dateValue.getTime()) ? '' : dateValue.toISOString().split('T')[0];
+  }
+
   if (typeof dateValue === 'number') {
     const date = XLSX.SSF.parse_date_code(dateValue);
     return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
   }
 
   if (typeof dateValue === 'string') {
-    const date = new Date(dateValue);
+    // Strip timezone annotation like "(Eastern Standard Time)" before parsing
+    const cleaned = dateValue.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const date = new Date(cleaned);
     if (!isNaN(date.getTime())) {
       return date.toISOString().split('T')[0];
     }
   }
 
-  return dateValue.toString();
+  return '';
 }
 
 function parseAmount(value: any): number | null {
