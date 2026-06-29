@@ -69,7 +69,7 @@ export interface PaymentRequest {
   filmmaker_id: string;
   content_id?: string;
   amount_requested: number;
-  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  status: 'pending' | 'approved' | 'processing' | 'paid' | 'failed' | 'rejected';
   admin_notes?: string;
   amount_approved?: number;
   payment_method_used?: string;

@@ -69,6 +69,7 @@ export function AdminDashboard() {
   const [approvingFilmmaker, setApprovingFilmmaker] = useState<User | null>(null);
   const [payoutMethod, setPayoutMethod] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
+  const [adminMemo, setAdminMemo] = useState('');
   const [editingTitle, setEditingTitle] = useState<Content | null>(null);
   const [editTitleSplits, setEditTitleSplits] = useState<SplitRow[]>([{ platform: null, company: 25, filmmaker: 75 }]);
   const [newFilmmaker, setNewFilmmaker] = useState<CreateFilmmakerData>({
@@ -594,6 +595,7 @@ export function AdminDashboard() {
   const openMarkAsPaid = async (request: PaymentRequest) => {
     setApprovingRequest(request);
     setTransactionRef('');
+    setAdminMemo('');
     // Fetch filmmaker's full profile for payout details
     if (request.filmmaker_id && supabase) {
       const { data } = await supabase
@@ -619,6 +621,7 @@ export function AdminDashboard() {
           status: 'paid',
           payment_method_used: payoutMethod,
           transaction_reference: transactionRef || null,
+          admin_notes: adminMemo || null,
           date_paid: new Date().toISOString(),
           approved_by: profile?.id,
           approved_at: new Date().toISOString(),
@@ -632,12 +635,47 @@ export function AdminDashboard() {
       setApprovingFilmmaker(null);
       setPayoutMethod('');
       setTransactionRef('');
+      setAdminMemo('');
       fetchDashboardData();
     } catch (error: any) {
       toast.error(error.message || 'Error marking payment. Please try again.');
     } finally {
       setMarkingPaidId(null);
     }
+  };
+
+  const handleSetStatus = async (requestId: string, status: 'processing' | 'failed') => {
+    try {
+      const { error } = await supabase!
+        .from('payment_requests')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+      if (error) throw error;
+      toast.success(status === 'processing' ? 'Marked as processing.' : 'Marked as failed.');
+      fetchDashboardData();
+    } catch (e: any) {
+      toast.error(e.message || 'Error updating status.');
+    }
+  };
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    const map: Record<string, string> = {
+      pending:    'bg-yellow-100 text-yellow-800',
+      approved:   'bg-green-100 text-green-800',
+      processing: 'bg-blue-100 text-blue-800',
+      paid:       'bg-emerald-100 text-emerald-800',
+      failed:     'bg-red-100 text-red-800',
+      rejected:   'bg-gray-100 text-gray-600',
+    };
+    const label: Record<string, string> = {
+      pending: 'Pending', approved: 'Approved', processing: 'Processing',
+      paid: 'Paid', failed: 'Failed', rejected: 'Rejected',
+    };
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
+        {label[status] ?? status}
+      </span>
+    );
   };
 
   const StatCard = ({ icon: Icon, title, value, color }: any) => (
@@ -1178,17 +1216,16 @@ export function AdminDashboard() {
                           {new Date(request.requested_at).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {request.status}
-                          </span>
+                          <StatusBadge status={request.status} />
                           {request.status === 'approved' && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              14 days from approval
+                            <div className="text-xs text-gray-500 mt-1">14 days from approval</div>
+                          )}
+                          {request.status === 'processing' && (
+                            <div className="text-xs text-gray-500 mt-1">Payment in transit</div>
+                          )}
+                          {request.admin_notes && (
+                            <div className="text-xs text-blue-600 mt-1 italic max-w-xs truncate" title={request.admin_notes}>
+                              Memo: {request.admin_notes}
                             </div>
                           )}
                         </td>
@@ -1231,12 +1268,38 @@ export function AdminDashboard() {
                               </>
                             )}
                             {request.status === 'approved' && (
-                              <Button
-                                size="sm"
-                                onClick={() => openMarkAsPaid(request)}
-                              >
-                                Mark as Paid
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleSetStatus(request.id, 'processing')}
+                                >
+                                  Processing
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => openMarkAsPaid(request)}
+                                >
+                                  Mark Paid
+                                </Button>
+                              </>
+                            )}
+                            {request.status === 'processing' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => handleSetStatus(request.id, 'failed')}
+                                >
+                                  Failed
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => openMarkAsPaid(request)}
+                                >
+                                  Mark Paid
+                                </Button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -2141,6 +2204,20 @@ export function AdminDashboard() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
+
+              {/* Admin memo — visible to filmmaker */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Memo to filmmaker <span className="text-gray-400 font-normal">(optional — filmmaker will see this)</span>
+                </label>
+                <textarea
+                  value={adminMemo}
+                  onChange={e => setAdminMemo(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Payment for Q1 2025 earnings. Let us know if you have questions."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 p-6 border-t border-gray-100">
@@ -2151,6 +2228,7 @@ export function AdminDashboard() {
                   setApprovingFilmmaker(null);
                   setPayoutMethod('');
                   setTransactionRef('');
+                  setAdminMemo('');
                 }}
                 className="flex-1"
               >

@@ -649,7 +649,7 @@ export function FilmmakerDashboard() {
                     className="w-full"
                     disabled={
                       stats.availableBalance < 100 ||
-                      paymentRequests.some(req => req.status === 'pending' || req.status === 'approved')
+                      paymentRequests.some(req => req.status === 'pending' || req.status === 'approved' || req.status === 'processing')
                     }
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -662,7 +662,7 @@ export function FilmmakerDashboard() {
                       </p>
                     </div>
                   )}
-                  {stats.availableBalance >= 100 && paymentRequests.some(req => req.status === 'pending' || req.status === 'approved') && (
+                  {stats.availableBalance >= 100 && paymentRequests.some(req => req.status === 'pending' || req.status === 'approved' || req.status === 'processing') && (
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                       <p className="text-sm text-blue-800">
                         You have a pending payment request. You can submit a new request once it has been paid.
@@ -797,23 +797,36 @@ export function FilmmakerDashboard() {
               <CardContent>
                 <div className="space-y-3">
                   {paymentRequests.slice(0, 5).map((request) => (
-                    <div key={request.id} className="flex items-center justify-between gap-2 p-3 bg-gray-50 rounded-lg">
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-900">
-                          ${request.amount_requested.toLocaleString()}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-500">
-                          {new Date(request.requested_at).toLocaleDateString()}
-                        </p>
+                    <div key={request.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900">
+                            ${request.amount_requested.toLocaleString()}
+                          </p>
+                          <p className="text-xs sm:text-sm text-gray-500">
+                            {new Date(request.requested_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          request.status === 'pending'    ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'approved'   ? 'bg-green-100 text-green-800' :
+                          request.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                          request.status === 'paid'       ? 'bg-emerald-100 text-emerald-800' :
+                          request.status === 'failed'     ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {request.status === 'processing' ? 'Processing' :
+                           request.status === 'paid'       ? 'Paid' :
+                           request.status === 'failed'     ? 'Failed' :
+                           request.status === 'approved'   ? 'Approved' :
+                           request.status === 'pending'    ? 'Pending' : request.status}
+                        </span>
                       </div>
-                      <span className={`flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        request.status === 'paid' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {request.status}
-                      </span>
+                      {(request as any).admin_notes && (
+                        <p className="mt-2 text-xs text-blue-700 bg-blue-50 rounded px-2 py-1 border border-blue-100">
+                          <span className="font-semibold">Note from Nandar Pictures:</span> {(request as any).admin_notes}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
